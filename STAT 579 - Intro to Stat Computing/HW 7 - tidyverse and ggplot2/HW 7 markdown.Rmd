@@ -1,0 +1,126 @@
+---
+title: "Homework 7"
+author: "Steve Harms"
+date: "October 25, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+require(purrr)
+library(magrittr)
+```
+
+#Exercise 1
+##a)
+```{r}
+#Read in the data
+congressd <- data.frame(read.csv(file = "https://raw.githubusercontent.com/fivethirtyeight/data/master/congress-age/congress-terms.csv",
+                       header = T, sep = ","))
+dim(congressd)
+```
+
+##b)
+```{r}
+#Summarize by age
+congressd %>% summarize(mean(age))
+```
+
+##c)
+```{r}
+#group by congress and chamber, then summarize by average age again
+bychamber <- congressd %>% group_by(congress, chamber) %>% summarize(avg_age = mean(age)) %>%
+  arrange(chamber) %>% select(chamber, congress, avg_age)
+
+head(bychamber)
+```
+
+##d)
+```{r}
+#plot the data, grouped by the factor chamber
+dp <- ggplot(data = bychamber, aes(y= avg_age, x = congress, shape = chamber, linetype = chamber))
+dpp <- dp + geom_point() + geom_line()
+dpp
+```
+
+##e)
+```{r}
+#Group and summarize again, but this time filter out any not in republican or democratic parties
+#Then count our group sizes
+partyaff <- congressd %>% group_by(congress, chamber, party) %>% filter(party == "R" | party == "D") %>%
+  summarize(avg_age = mean(age), n = length(party))%>% arrange(chamber, congress, party) %>%
+  select(chamber, congress, party, avg_age, n)
+
+head(partyaff)
+```
+
+##f)
+```{r}
+#Plot the data again, this time with a color for each party
+fp <- ggplot(data = partyaff, aes(y= avg_age, x = congress, shape = chamber, linetype = chamber, col = party))
+fpp <- fp + geom_line() + geom_point()
+fpp
+```
+
+##g)
+```{r}
+#Group and summarize as above, but also include incumbent this time
+#Filter so we only have the house and not the senate included
+byinc <- congressd %>% group_by(congress, chamber, party, incumbent) %>% filter(party == "R" | party == "D") %>%
+  summarize(avg_age = mean(age), n = length(party))%>% arrange(chamber, congress, party, incumbent) %>%
+  select(chamber, congress, party, incumbent, avg_age, n) %>% filter(chamber == "house")
+
+head(byinc)
+
+#Now plot the data as above, separated by incumbent and party as factors
+gp <- ggplot(data = byinc, aes(y= avg_age, x = congress, shape = incumbent, linetype = incumbent, col = party))
+gpp <- gp + geom_line() + geom_point()
+gpp
+```
+
+#Exercise 2
+##a)
+```{r}
+#split the data into a list of 3 frames based on species
+iris.split <- split(iris, iris$Species)
+#Check some results to make sure it worked
+names(iris.split)
+dim(iris.split$setosa)
+```
+
+##b)
+```{r}
+#create a linear model for each of the 3 data frames (species)
+mod <- iris.split %>% map(~ lm(Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width, data = .x))
+#check one of the resulting list elements
+mod$versicolor
+```
+
+##c)
+```{r}
+#Get the summaries of the linear models from above
+models <- mod %>% map(summary)
+#check one of the resulting list elements
+models$virginica
+```
+
+##d)
+```{r}
+#get coefficients from each of the 3 models
+coeff <- models %>% map(coef)
+coeff
+```
+
+##e)
+```{r}
+#Combine the 3 models' coefficients into a single data frame
+newdf <- coeff %>% map_df( ~as.data.frame(.x), .id = 'Species')
+newdf
+```
+

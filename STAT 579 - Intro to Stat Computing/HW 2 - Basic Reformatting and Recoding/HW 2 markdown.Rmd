@@ -1,0 +1,239 @@
+---
+title: "Homework 2"
+author: "Steve Harms"
+date: "September 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Exercise 1
+##a)
+```{r}
+
+#I manually entered the numeric heights without units, and generate the year as a decreasing sequence
+
+year <- seq(from = 2008, to = 1948, by = -4)
+winner <- rev(c(175, 179, 179, 183, 193, 182, 182, 177, 185, 185, 188, 189, 189, 182, 182, 185))
+opponent <- rev(c(173, 178, 178, 182, 180, 180, 185, 183, 177, 180, 173, 188, 187, 185, 193, 175))
+
+#Combine my 3 columns into a data frame
+elections <- data.frame(year, winner, opponent)
+```
+
+##b)
+```{r}
+#Create a new data frame with an additional field
+electionsdiff <- data.frame(year, winner, opponent, difference = winner - opponent)
+```
+
+##c)
+```{r}
+#add a column of logical values to our data frame from (a)
+elections$taller.won <- (winner - opponent > 0)
+```
+
+##d)
+```{r}
+#Create a frequency table of the logical values in the new column. I use prop.table to get the proportions
+percentages <- prop.table(table(elections$taller.won))
+percentages
+```
+
+**75% of our elections were won by the taller candidate, so based on this table we might believe that a taller candidate is more likely to become president. However, given small sample size and the context, I wouldn't believe this to be actually true unless I was controlling for many other factors.**
+
+##e)
+```{r}
+#Create a bar plot of height differences. X-axis labeled with year, and I color it blue. rev() reverses the order of the data
+barplot(rev(electionsdiff$difference), names.arg= rev(elections$year), axes = TRUE,
+        xlab = "Year", ylab = "Difference(cm)", main = "Difference in Height of Presidential Election Winners, 1948-2008",
+        col = "BLUE", cex.names = .98, las = 2)
+```
+
+##f)
+```{r}
+#Write a new file of our data, making sure to separate by ",". I change the column names to be more understandable.
+#The file will appear in whatever you set your working directory as.
+write.table(elections, file = "heights.csv", sep = ",",
+            row.names = FALSE, col.names = c("Year", "Winner Height (cm)", "Loser Height (cm)", "Taller Won?"))
+```
+
+#Exercise 2
+```{r}
+#I downloaded the file into the working directory, reading from Canvas does not work well
+students <- read.table(file = "students.txt", header = TRUE,
+                       sep = "", col.names = c("height", "shoe size", "gender", "population"))
+```
+
+
+##a)
+
+```{r}
+#Calculating some summary statistics for our data set
+mean(students$height)
+mean(students$shoe.size)
+sd(students$height)
+sd(students$shoe.size)
+```
+
+**So our students' height has mean 169.765 cm with standard deviation 7.579 cm, and shoe size has mean 40.471 with standard deviation 2.695**
+
+##b)
+```{r}
+#a summary of the gender column will give us counts by gender
+summary(students$gender)
+```
+**So we have 9 females and 8 males**
+
+##c)
+```{r}
+attach(students)
+
+#Recode to colors, I convert to character type first
+population <- as.character(population)
+population[population == "kuopio"] <- "blue"
+population[population == "tampere"] <- "red"
+
+#just as an example we could also do the recoding in one command:
+population2 <- ifelse(students$population == "kuopio", "blue", "red")
+
+#Combine data into a new data frame
+students_new <- data.frame(height, shoe.size, gender, population)
+```
+
+##d)
+```{r}
+#Subset the data
+male <- subset(students, gender == "male")
+female <- subset(students, gender == "female")
+
+#Write the subsets into text files, removing the quotes from character strings
+write.table(male, file = "male.txt", row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(female, file = "female.txt", row.names = FALSE, col.names = TRUE, quote = FALSE)
+```
+
+##e)
+```{r}
+#Subset the data based on the median. Problem didn't specify what to do with median so I just leave it out of the subsets
+med <- median(height)
+below <- subset(students, height < med)
+abovem <- subset(students, height > med)
+
+#Write the subsets into 2 new files
+write.table(abovem, file = "abovem.csv", row.names = FALSE, col.names = TRUE, quote = FALSE, sep = ",")
+write.table(below, file = "below.csv", row.names = FALSE, col.names = TRUE, quote = FALSE, sep = ",")
+```
+
+#Exercise 3
+##a)
+
+```{r}
+#Read in the data. I keep column names given in the file for now
+cars <- read.table(file = "http://maitra.public.iastate.edu/stat579/datasets/cars.dat", header = TRUE)
+```
+
+##b)
+```{r}
+#attach the data frame
+attach(cars)
+```
+
+##c)
+```{r}
+#convert to feet per second
+fps <- speed * 5280 / (60*60)
+```
+
+##d)
+```{r}
+#Plot speed vs. distance
+plot(y = dist, x = fps, type = "p", ylab = "Distance (ft)", xlab = "Speed (ft/s)", main = "Speed vs. Stopping Distance (Imperial)",
+     pch = 16, col = "blue")
+
+#Save the plot for later
+plot1 <- recordPlot()
+
+#Save to pdf file
+dev.copy2pdf(file = "Speed vs Distance fps.pdf", device = plot1)
+```
+
+##e)
+```{r}
+#Convert speeds and distance into metric
+#Distance in meters
+distance.metric <- dist*(1.6903*1000)/5280
+
+#Speed in km/hr
+speed.metric <- speed*1.6903
+
+#Speed in meters/second
+speed.ms <- fps*1.6903*1000/5280
+```
+
+##f)
+```{r}
+#Detach data frame
+detach(cars)
+```
+
+##g)
+```{r}
+#Plot Speed against distance again, now in metric
+plot(y = distance.metric, x = speed.ms, type = "p", ylab = "Distance (m)", xlab = "Speed (m/s)", main = "Speed vs. Stopping Distance (Metric)",
+     pch = 16, col = "black")
+
+plot2 <- recordPlot()
+```
+
+##h)
+```{r}
+#Print to pdf
+dev.copy2pdf(file = "Speed vs Distance metric.pdf", device = plot2)
+
+```
+**(Note I saved the first plot when I created it in a previous step)**
+
+**It's clear from the two plots that there is a positive linear relationship between the speed of the car and the distance required to stop. THe only difference between the the two plots is the units, the trend is the exact same.**
+
+#Exercise 4)
+##a)
+```{r}
+#Read the data into R
+pottery <- read.table(file = "http://www.public.iastate.edu/~maitra/stat579/datasets/pottery.dat", header = TRUE)
+```
+
+##b)
+
+**Note that in the output below, each row provides the summary statistics for each element at each site (4 sites total = 4 rows). Site C only had 2 observations so the IQR isn't really applicable for that data. The aggregate function doesn't give standard deviation so I call it separately. This could also be done with the tapply() function if we wanted to do so.**
+```{r}
+#I use the base aggregate() function to find summary statistics by site,
+#much faster than subsetting and then finding summary statistics for each
+#Note that summary won't give us standard devitaion, so I call that function as well
+
+aggregate(pottery[,-6], by = list(pottery$Site), FUN = summary)
+
+#Standard deviations below
+aggregate(pottery[,-6], by = list(pottery$Site), FUN = sd)
+```
+
+##c)
+```{r}
+#Build boxplots for each chemical, subset by site
+#First, set up the plotting area to include enough space for all of the plots and a title
+par(mfrow = c(2,3), oma=c(0,0,2,0))
+
+#Now, call the boxplot function for each chemical
+boxplot(pottery$Al~pottery$Site, main = "Aluminum", xlab = "Site", ylab = "Percentage")
+boxplot(pottery$Fe~pottery$Site, main = "Iron", xlab = "Site", ylab = "Percentage")
+boxplot(pottery$Mg~pottery$Site, main = "Magnesium", xlab = "Site", ylab = "Percentage")
+boxplot(pottery$Ca~pottery$Site, main = "Calcium", xlab = "Site", ylab = "Percentage")
+boxplot(pottery$Na~pottery$Site, main = "Sodium", xlab = "Site", ylab = "Percentage")
+
+#And a title for good measure
+title("Percentage of Oxides of Various Chemicals by Site", outer = TRUE)
+```
+
+##d)
+**Based on the box plots, it looks like Fe, Ca, and Mg have an inverse relationship with Al, in that sites where Al was found in high amounts meant Mg, Ca, and Fe were found in small amounts (and vice versa). Sodium was found in very low percentage amounts in 3 of the 4 sites, while Aluminum was found in somewhat high percentages at all 4 sites. For the other 3 chemicals, the percentage varied by site. I think this means that sites where Fe, Mg, and Ca had higher concentrations, it was because they were being used as substitutes for Aluminum. It also appears that we have a few outliers and that those outliers were fairly consistent across sites.**
