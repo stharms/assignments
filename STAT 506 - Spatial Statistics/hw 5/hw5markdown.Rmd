@@ -1,0 +1,89 @@
+---
+title: "Homework 5"
+author: "Steve Harms"
+date: "April 22, 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(spatstat)
+library(RColorBrewer)
+library(ggplot2)
+library(viridisLite)
+```
+#2)
+##a)
+```{r, include = FALSE}
+bramble <- scan(file="brambles3.txt", sep = ',')
+bramble <- bramble[!is.na(bramble)]
+length(bramble) ; tail(bramble)
+l <- seq(1:718); eventries <- which(l%%2==0)
+x <- 9*bramble[-eventries]
+y <- 9*bramble[eventries]
+brambles <- as.data.frame(cbind(x,y))
+```
+```{r}
+canes <- ppp(x, y, window=owin(c(0,9),c(0,9)))
+
+#a plot of the data
+plot(x = x, y = y)
+
+#plot of the density using Diggle's Bandwidth
+image(density(canes, diggle=T), main = "Estimated Intensity", col = brewer.pal(n = 9, name = "Oranges"))
+```
+
+**It appears there may be some clustering based on the plot of the intensity, but the plot of the original data is inconclusive.**
+
+##b)
+```{r}
+#K-function
+Kc <- Kest(canes, correction="Ripley")
+plot(Kc, main="Estimated K function")
+plot(Kc,  iso - theo ~ r, main="Deviation from CSR (K-function)")
+abline(h=0, lty=2, col="gray40")
+#L-function
+Lc <- Lest(canes)
+plot(Lc, main = "Estimated L Function")
+plot(Lc,  iso - theo ~ r, main="Deviation from CSR (L-Function)")
+abline(h=0, lty=2, col="gray40")
+#values are large near 0, indication of some clustering
+```
+
+**Both the K- and L- functions have positive values near 0, indicating that the plot is clustered. However, note that the deviation  from CSR for the L- function is actually less than 0 for very small distance from origin, which indicates that this process may not actually be clustered.**
+
+#3)
+##a)
+```{r, include=FALSE}
+redwoods <- scan(file = "redwood.txt")
+l.r <- seq(1:length(redwoods)); eventries.r <- which(l.r%%2==0)
+x.r <- 23*redwoods[-eventries.r] ; y.r <- 23*redwoods[eventries.r];
+redwood <- as.data.frame(cbind(x.r, y.r))
+```
+```{r}
+trees <- ppp(x.r, y.r, window=owin(c(0,23),c(0,23)))
+#a plot of the data
+plot(x = x.r, y = y.r)
+#plot of the density
+plot(density(trees, diggle=T), main = "Estimated Intensity", col = plasma(10))
+```
+
+##b)
+```{r}
+#K-function
+Ks <- Kest(trees, correction="Ripley")
+plot(Ks, main="Estimated K function")
+plot(Ks,  iso - theo ~ r, main="Deviation from CSR (K)")
+abline(h=0, lty=2, col="gray40")
+#L-function
+Ls <- Lest(trees)
+plot(Ls, main = "Estimated L Function")
+plot(Ls,  iso - theo ~ r, main="Deviation from CSR (L)")
+abline(h=0, lty=2, col="gray40")
+```
+
+**While our intuition suggests that this process should be clustered around trees, the K- and L-functions and actually negative near 0, indicating that this process is actually somewhat regular/unclustered.**

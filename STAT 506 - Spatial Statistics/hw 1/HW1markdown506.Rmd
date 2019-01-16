@@ -1,0 +1,115 @@
+---
+title: "STAT 506 Homework 1"
+author: "Steve Harms"
+date: "January 24, 2018"
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 5
+    theme: readable
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(geoR)
+library(ggplot2)
+```
+
+#4)
+##a)
+```{r}
+soil <- read.table(file = "soil.txt", header = T)
+head(soil)
+#quick summary of the data
+summary(soil)
+#plot of the geodata
+g <- ggplot(data = soil, aes(x=x, y=y))
+h <- g + geom_point(aes(colour = lead)) + scale_color_gradientn(colours =rev(topo.colors(8))) +
+  theme_dark()
+h
+```
+
+##b)
+```{r}
+#convert to geodata format
+soilgeo <- as.geodata(soil, coords.col = 1:2, data.col = 3, covar.col = 4)
+#compute empirical variogram and plot
+#visually, nugget is 5000, sill is 17500, range ~ 800, partial sill 17500-5000=12500
+omndvar <- variog(soilgeo, option = "bin", uvec = seq(0, 1400, length = 30 ))
+plot(omndvar, main = "Omnidirectional Variogram up to Lag Distance 1400")
+```
+
+##c)
+```{r}
+##Triangular Model
+#Compute variogram
+#Need to use linear model with sigma^2/a instead of sigma^2,
+#and then range becomes A/A = 1 using geoR's specification
+vario.tri <- variofit(omndvar, ini.cov.pars = c(12500/800, 1), cov.model = "linear", weights = "cressie")
+vario.tri
+#Fit values and calculate residuals
+fit.tri = vario.tri$nugget + vario.tri$cov.pars[1] * (omndvar$u/vario.tri$cov.pars[2])
+res.tri = sqrt(omndvar$n) * ((omndvar$v - fit.tri)/fit.tri)
+#plot of Empirical Variogram vs. Fitted Model
+plot(omndvar, main = "Triangular Variogram Model vs. Empirical") + lines(vario.tri)
+#Plot of residuals
+plot(y = res.tri, main = "Triangular Model Residuals", ylab = "Residuals", xlab= "Lag Distance", x=omndvar$u)
+########
+
+##Exponential Model
+#Compute Variogram
+vario.exp <- variofit(omndvar, ini.cov.pars = c(12500, 800), cov.model = "exp", weights = "cressie", nugget = 5000)
+vario.exp
+#Fit Values and calculate residuals
+fit.exp = vario.exp$nugget + vario.exp$cov.pars[1] * (1 - exp(-omndvar$u/vario.exp$cov.pars[2]))
+res.exp = sqrt(omndvar$n) * ((omndvar$v - fit.exp)/fit.exp)
+#plot of Empirical Variogram vs. Fitted Model
+plot(omndvar, main = "Exponential Variogram Model vs. Empirical") +lines(vario.exp)
+#Plot of residuals
+plot(y=res.exp, main = "Exponential Model Residuals",ylab = "Residuals", xlab= "Lag Distance", x=omndvar$u)
+#####################
+########
+
+##Spherical Model
+#Compute Variogram
+vario.sph <- variofit(omndvar, ini.cov.pars = c(12500, 800), cov.model = "spherical", weights = "cressie", nugget = 5000)
+vario.sph
+#Fit Values and calculate residuals
+fit.sph = vario.sph$nugget + vario.sph$cov.pars[1] * (1.5*(omndvar$u/vario.sph$cov.pars[2])-.5*(omndvar$u/vario.sph$cov.pars[2])^3)
+res.sph = sqrt(omndvar$n) * ((omndvar$v - fit.sph)/fit.sph)
+#plot of Empirical Variogram vs. Fitted Model
+plot(omndvar, main = "Spherical Variogram Model vs. Empirical") + lines(vario.sph)
+#Plot of residuals
+plot(y = res.sph, main = "Spherical Model Residuals", ylab = "Residuals", xlab= "Lag Distance", x=omndvar$u)
+
+#####################
+########
+
+##Matern Model
+#Compute Variogram
+vario.matern <- variofit(omndvar, ini.cov.pars = c(12500, 800), cov.model = "matern", weights = "cressie", kappa = 1)
+vario.matern
+#Fit Values and calculate residuals
+fit.mtr = vario.matern$nugget + vario.matern$cov.pars[1] * (1 - (1/gamma(1)) * (abs(omndvar$u) / vario.matern$cov.pars[2]) * besselK((abs(omndvar$u) / vario.matern$cov.pars[2]), nu = 1))
+res.mtr = sqrt(omndvar$n) * ((omndvar$v - fit.mtr)/fit.mtr)
+#plot of Empirical Variogram vs. Fitted Model
+plot(omndvar, main = "Matern Variogram Model vs. Empirical") + lines(vario.matern)
+#Plot of residuals
+plot(y = res.mtr, main = "Matern Model Residuals", ylab = "Residuals", xlab= "Lag Distance", x=omndvar$u)
+```
+
+**The triangular model is clearly a poor fit, but the others (Exponential, Spherical, Matern) all appear to be reasonable fits for the data based on the fitted model and residual plots. Spherical has the smallest weighted sum of squares and also the most reasonable looking residual plot, so by that primitive reasoning I would say spherical model is the best.**
+
+##d)
+```{r}
+#Compute Direction Variograms
+var.direct <- variog4(soilgeo, uvec = seq(0, 1400, length = 30), direction = c(0,pi/4,pi/2,3*pi/4))
+#Plot Empirical Variograms
+plot(var.direct)
+```
+
+**There is no convincing visual evidence for anisotropy in any direction. All of the directional variograms appear to follow similar patterns, especially at short lag distances, which suggests that the variogram only depends on lag distance and not direction. Most of the difference is likely due to the nugget effect. IF there is anisotropy, it would likely be in the 3pi/4 direction as that one is visually the most different.**

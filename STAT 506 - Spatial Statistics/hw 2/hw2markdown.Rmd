@@ -1,0 +1,119 @@
+---
+author: "Steve Harms"
+output: 
+  html_document:
+    fig_height: 4
+    fig_width: 5
+    theme: readable
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(geoR)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+```
+
+#3)
+##a)
+```{r}
+soil <- read.table(file = "soil.txt", header = T)
+soil$lead <- log(soil$lead)
+soilgeo <- as.geodata(soil, coords.col = 1:2, data.col = 3, covar.col = 4)
+
+#####
+#estimate the empirical variogram
+omndvar <- variog(soilgeo, option = "bin", uvec = seq(0, 1400, length = 30 ))
+plot(omndvar, main = "Omnidirectional Variogram up to Lag Distance 1400")
+```
+
+```{r, results = "hide"}
+#exponential model
+vario.exp <- variofit(omndvar, ini.cov.pars = c(.6, 1100), cov.model = "exp", weights = "cressie", nugget = 0.1)
+mle.exp = likfit(soilgeo,ini.cov.pars = vario.exp$cov.pars,nugget = vario.exp$nugget, cov.model = "exp")
+```
+```{r}
+mle.exp
+```
+
+```{r, results = "hide"}
+#spherical model
+vario.sph <- variofit(omndvar, ini.cov.pars = c(.6, 1100), cov.model = "spherical", weights = "cressie", nugget = 0.1)
+mle.sph = likfit(soilgeo,ini.cov.pars = vario.sph$cov.pars,nugget = vario.sph$nugget, cov.model = "spherical")
+```
+```{r}
+mle.sph
+```
+
+```{r, results = "hide"}
+#matern model
+vario.mtr <- variofit(omndvar, ini.cov.pars = c(.6, 1100), cov.model = "matern", weights = "cressie", kappa = 1)
+mle.mtr = likfit(soilgeo,ini.cov.pars = vario.mtr$cov.pars,nugget = vario.mtr$nugget, cov.model = "matern", kappa = 1, fix.kappa = T)
+```
+```{r}
+mle.mtr
+
+#compare BICs
+c(mle.mtr$BIC, mle.exp$BIC, mle.sph$BIC)
+```
+
+##b)
+```{r, results = "hide"}
+#exponential model cross validation
+exp.xv <- xvalid(soilgeo, model = mle.exp, locations.xvalid = "all", reestimate = F)
+exp.mspe <- (1/length(exp.xv$error))*sum((exp.xv$error)^2)
+
+#spherical model cross validation
+sph.xv <- xvalid(soilgeo, model = mle.sph, locations.xvalid = "all", reestimate = F)
+sph.mspe <- (1/length(sph.xv$error))*sum((sph.xv$error)^2)
+
+#matern model cross validation
+mtr.xv <- xvalid(soilgeo, model = mle.mtr, locations.xvalid = "all", reestimate = F)
+mtr.mspe <- (1/length(mtr.xv$error))*sum((mtr.xv$error)^2)
+```
+
+```{r}
+#now let's take a look at the MSPE values
+resids <- data.frame(cbind(exp.xv$error, sph.xv$error, mtr.xv$error))
+names(resids) <- c("exponential", "spherical", "matern")
+mspes <- rbind(c(names(resids)), c(exp.mspe,sph.mspe, mtr.mspe))
+mspes
+#spherical has the lowest MSPE, just as it had smallest BIC. Conclude spherical is the best model
+
+#get residuals from the xvalid() object to plot
+#boxplots look very similar, just as the MSPEs were very close to each other
+resids1 <- gather(resids)
+b <- ggplot(data = resids1, aes(x = key, y = value))
+b+ geom_boxplot() + ylab("residual value") + xlab("model") + ggtitle("Residual Box Plots")
+
+```
+
+##c)
+```{r}
+#Create our grid to plot
+xrange <- range(soil[,1])
+yrange <- range(soil[,2])
+grid <- expand.grid(x = seq(xrange[1],xrange[2],l=50),y=seq(yrange[1],yrange[2],l=50))
+
+#Krige using our best model, which was the Spherical model
+kc.sph <- krige.conv(geodata=soilgeo, locations= grid, krige=krige.control(type.krige="OK",obj.model = mle.sph))
+
+#Plot our predictions using ggplot2
+krigimage <- data.frame(x=grid$x,y = grid$y, pred=kc.sph$predict)
+i <- ggplot(krigimage,mapping = aes(x = x, y = y))
+h <- i + geom_tile(mapping = aes(fill = pred)) +  scale_fill_gradientn(colours = brewer.pal(n = 9, name = "YlOrBr"))+
+    theme_bw() + xlab("x") + ylab("y")+ ggtitle("Kriging Predictions")
+h
+
+#Now a plot of our kriging variances
+variances.sph = data.frame(x=grid$x,y = grid$y,var=kc.sph$krige.var)
+v <- ggplot(variances.sph,mapping = aes(x = x, y = y))
+v + geom_tile(mapping= aes(fill = var)) + scale_fill_gradientn(colours = brewer.pal(n = 9, name = "Purples")) +
+  theme_bw() + xlab("x") + ylab("y") + ggtitle("Kriging Variances")
+```
+

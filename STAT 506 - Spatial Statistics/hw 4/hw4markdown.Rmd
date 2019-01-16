@@ -1,0 +1,106 @@
+---
+title: "HW4"
+author: "Steve Harms"
+date: "April 4, 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(maptools)
+library(spdep)
+library(fields)
+
+plot.poly <- function (xx.polylist, aux.var, intervals,
+                       legend.x, legend.y, ...)
+{
+  if (missing(aux.var)) {
+    plot(xx.polylist, ...)
+    ##forcefill=FALSE, ...)
+  }
+  else {
+    cols <- grey(seq(0.2, 0.8, length=length(intervals)))
+    
+    the.cols <- cols[findInterval(aux.var, intervals)]
+    plot(xx.polylist, col=the.cols, ...)
+    
+    ys <- sort(seq(legend.y[1], legend.y[2], len=length(intervals)))
+    
+    image(range(legend.x), ys,
+          rbind(intervals, intervals), col=cols, add=T)
+    
+    text(min(legend.x), ys, intervals, pos=2, cex=0.9)
+  }
+  
+  invisible()
+}
+
+```
+#2)
+##a)
+```{r}
+satprox <- as.matrix(read.table("sat_proximity.txt", header=F))
+sat <- read.table("sat.txt", header=TRUE)
+load("US_states.RData")
+where.is.state <- pmatch(tolower(US$STATE_NAME), tolower(sat$name))
+#simple linear regression model
+slr <- lm(vscore~pc, data=sat)
+#summarize coefficients
+summary(slr)$coefficients
+#get residuals
+residslr <- slr$residuals
+#choropeth plot
+plot(0, 0, xlim=c(-125, -68), ylim=c(25,50), type="n",
+     xlab="", ylab="", main="SAT verbal scores vs. %Participation, residuals")
+plot.poly(US, residslr[where.is.state], seq(-29, 27, 25),
+          legend.x=c(-71, -70), legend.y=c(25, 30), add=TRUE)
+#qqplot
+qqnorm(residslr)
+```
+*From the choropeth plot, it's clear that there is spatial correlation among the scores, as we can see clustering in the southwest and southeast, as well as correlation of higher scores in the midwest and northeast/New England areas.*
+
+##b)
+```{r}
+neighblist <- mat2listw(satprox)
+#1000 permutation Moran's I test
+ptest <- moran.mc(residslr, neighblist, nsim = 10000)
+
+ptest
+Iactual <- as.numeric(ptest$res[10001])
+Iactual
+hist(ptest$res)
+abline(v = Iactual, col = "blue", lwd = 4)
+```
+*Moran's I results show that there is strong evidence to reject the null hypothesis, indicating spatial correlation. The p-value is very small, and from the histogram we can see that the actual computed value is far in the tail of the distribution of the bootstrapped values.*
+
+##c)
+```{r}
+#spatial auto model, including intercept
+spfit <- spautolm(formula = vscore ~ pc, listw = neighblist, family = "CAR", data=sat)
+#summary of results
+summary(spfit)
+```
+
+##d)
+```{r}
+#now trying with SAR
+sarfit <- spautolm(formula = vscore ~ pc, listw = neighblist, family = "SAR", data=sat)
+#summary of results, very little difference from CAR model
+summary(sarfit)
+```
+*The SAR model is very similar to the CAR model. The parameter estimates are very close to the same and the inferences on coefficients and parameters are not different. The AIC for the SAR model is smaller, so perhaps it is better, but the model does not change much.*
+
+```{r}
+#A new residual plot looks like we have accounted for much more of the spatial correlation
+#though it may not be perfect yet
+car.resids <- spfit$fit$residuals
+plot(0, 0, xlim=c(-125, -68), ylim=c(25,50), type="n",
+     xlab="", ylab="", main="residuals after accounting for spatial correlation")
+plot.poly(US, car.resids[where.is.state], seq(from = -26, to = 20,by = 2),
+          legend.x=c(-71, -70), legend.y=c(25, 30), add=TRUE)
+```
+
