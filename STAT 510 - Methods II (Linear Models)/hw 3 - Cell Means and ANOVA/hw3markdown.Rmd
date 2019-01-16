@@ -1,0 +1,137 @@
+---
+title: 'STAT 510 HW #3'
+author: "Steve Harms"
+date: "January 23, 2018"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    fig_height: 4
+    fig_width: 4
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(Sleuth3)
+library(ggplot2)
+library(MASS)
+library(tidyverse)
+```
+#1)
+##a)
+```{r}
+df <- case0501
+g <- ggplot(data = df, aes(x = Diet, y = Lifetime))
+g + geom_boxplot()
+```
+##b)
+```{r}
+mod <- lm(Lifetime~0+Diet, data = df)
+anva <- anova(mod)
+anva
+anva$`Sum Sq`[2]
+
+#alternative using matrices
+lenx <- length(df$Diet)
+diets <- arrange(df, Diet)
+Ident <- diag(lenx)
+X <- model.matrix(~0+factor(diets$Diet))
+Px <- X%*%ginv(t(X)%*%X)%*%t(X)
+y <- diets$Lifetime
+sse <- t(y)%*%(Ident-Px)%*%y
+sse
+```
+##c)
+```{r}
+#Using ANOVA Table
+anva
+anva$`Mean Sq`[2]
+
+#using matrices
+sig2hat <- sse/(lenx - 6)
+sig2hat
+```
+##d)
+```{r}
+#using lm
+dietsn <- diets
+#recode
+dietsn$Diet[dietsn$Diet=="N/R50"] <-  "lopro"
+#lm
+mod.red <- lm(Lifetime~0+Diet, data = dietsn)
+anva.red <- anova(mod.red)
+anva.red
+anva.red$`Sum Sq`[2]
+
+#using matrices
+Xo <- model.matrix(~0+factor(dietsn$Diet))
+Po <- Xo%*%ginv(t(Xo)%*%Xo)%*%t(Xo)
+y <- diets$Lifetime
+sse.red <- t(y)%*%(Ident-Po)%*%y
+sse.red
+```
+##e)
+```{r}
+#using anova()
+anova(mod.red, mod)$F[2]
+#using matrices
+Fstat <- ((sse.red - sse)/(anva.red$Df[2]-anva$Df[2])) / (sse/anva$Df[2])
+Fstat
+#and a p-value as well
+pf(Fstat, df1 = (anva.red$Df[2]-anva$Df[2]), df2 = (anva$Df[2]), lower.tail = F)
+```
+##f)
+The F-statistic can be used to test whether there is a _significant difference in mean lifetimes_ of the two groups of mice that were fed reduced calorie diets only after weaning but not before (groups N/R50 and N/R50 lopro). The test would help determine whether there was an effect of the low protein diet when mice were fed reduced calorie diets only after weaning.
+##g)
+Our $\beta$ matrix is just a vector of group means, 
+$$\mathbf{\beta} = \left[\begin{array}{rrr}
+\mu_1 \\ \mu_2 \\ \mu_3 \\ \mu_4 \\ \mu_5 \\ \mu_6 \\
+\end{array}\right]
+$$
+Where each $\mu_i$ is the group mean for each treatment group listed in the order of the statement. We want to test whether group 3 has the same treatment mean as group 5, or that $\mu_3 - \mu_5 = 0$. Then
+$$\mathbf{C} = \left[\begin{array}
+{rrr}
+0 &0 & 1 & 0 & -1 & 0 \\
+\end{array}\right]
+$$
+and $\textbf{d} = 0$
+
+Then our F-statistic should be the same as before, and now using the matrix method on slide 20, we get
+```{r}
+C = t(c(0,0,1,0,0,-1)) #I sorted the data so C is different than specified above
+q = 1
+d = 0
+y <- diets$Lifetime
+X <- model.matrix(~0+factor(diets$Diet))
+betahat = ginv(t(X)%*%X)%*%t(X)%*%y
+Fc = (t((C%*%betahat))%*%solve(C%*%(ginv(t(X)%*%X))%*%t(C))%*%(C%*%betahat) / 1 ) / (sig2hat)
+Fc
+```
+
+#2)
+Let $$\mathbf{A} = \left[\begin{array}
+{rrr}
+-1 & 1 \\
+ 1 & 1\\
+\end{array}\right]$$
+and let $$\mathbf{G} = \left[\begin{array}
+{rrr}
+-1/2 & -1 \\
+ 1 & -1/2\\
+\end{array}\right]$$
+Simple matrix multiplication will show that $AGA = A$, thus by definition G is a generalized inverse of $A$. But $A$ is symmetric (off-diagonal elements are the same), and $G$ is clearly not symmetric as $-1 \neq 1$, so generalized inverses of symmetric matrices need not be symmetric.
+
+End.
+
+
+
+
+
+
+
+
+
+

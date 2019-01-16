@@ -1,0 +1,170 @@
+---
+title: "Homework 12"
+author: "Steve Harms"
+date: "April 19, 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(nlme)
+library(MASS)
+library(lme4)
+```
+#1)
+##a)
+```{r}
+leaf<- read.table(file="LeafArea.txt",header=T)
+leaf$ResearchStation <- factor(leaf$ResearchStation)
+mod1 <- lmer(LeafArea ~ Dose + (1 + Dose | ResearchStation), data = leaf)
+mod1
+sige <- sigma(mod1)^2
+sige
+```
+**From the model, we can quickly get $\sigma^{2}_{e} = 1.987148^{2} = 3.948756$.**
+
+##b)
+**We can use the random effects to get \Sigma_{b} as below, using the standard covariance matrix formula for a multivariate normal distribution**
+```{r}
+Sigmab <- matrix(c(3.238626^2, .06*3.238626*.007499, .06*3.238626*.007499, .007499^2), nrow = 2, ncol = 2)
+Sigmab
+```
+
+##c)
+```{r}
+##c)
+#get our regression coefficients using the model
+b <- fixef(mod1)[1]
+a <- fixef(mod1)[2]
+c(a,b)
+#plot data and the line together
+plot(y=leaf$LeafArea[which(leaf$ResearchStation==7)], x = leaf$Dose[which(leaf$ResearchStation==7)]) +
+  abline(coef = c(b,a))
+```
+
+##d)
+```{r}
+##d)
+B1b17 <- fixef(mod1)[1] + ranef(mod1)$ResearchStation[7,1]
+B2b27 <- fixef(mod1)[2] + ranef(mod1)$ResearchStation[7,2]
+c(B1b17,B2b27)
+```
+
+**The regression function is y = 12.5907 + .04378x**
+
+##e)
+```{r}
+station7 <- leaf[leaf$ResearchStation==7,]
+mod7 <- lm(LeafArea ~ Dose, data=station7)
+mod7
+```
+**The SLR function is y = 13.65 + .0222x**
+
+##f)
+```{r}
+plot(y=leaf$LeafArea[which(leaf$ResearchStation==7)], x = leaf$Dose[which(leaf$ResearchStation==7)], pch = 20,
+     ylab = "Leaf Area" , xlab = "Dose") +
+  abline(coef = c(b,a), lwd = 2)  +
+  abline(reg= mod7, col ="Blue", lwd = 2) +
+  abline(coef = c(B1b17,B2b27), col = "Red", lwd = 2)
+```
+
+##g)
+```{r}
+#fit a reduced model where B2 = 0
+mod0 <- lmer(LeafArea ~ 1 + (1 + Dose | ResearchStation), data = leaf)
+#Calculate the Likelihood ratio statistic for reduced vs. full model
+lrs <- -2*(logLik(mod0) - logLik(mod1))
+lrs
+```
+
+##h)
+```{r}
+AIC(mod1)
+-2*logLik(mod1) + 2*(6)
+```
+
+##i)
+```{r}
+#fit model with only a random effect on the intercept
+modi <- lmer(LeafArea ~ Dose + (1 | ResearchStation), data = leaf)
+AIC(modi)
+-2*logLik(modi) + 2*4
+```
+
+##j)
+```{r}
+#without random effects for intercept or slope, it's just a simple linear regression
+modj <- lm(LeafArea ~ Dose, data = leaf)
+AIC(modj)
+-2*logLik(modj) + 2*3
+```
+
+##k)
+```{r}
+anova(modi,modj,mod1)
+#model from i is preferred with the smallest AIC
+```
+**We see that the model from part (i), which has no random slope effect, is the preferred with the smallest AIC.**
+
+#2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#3)
+```{r}
+donner <- read.table(file="Donner.txt", header=T)
+mod3 <- glm(status~sex + age, family = binomial(link=logit), data= donner)
+summary(mod3)
+mod3a <- glm(status~sex, family = binomial(link=logit), data= donner)
+mod3b <- glm(status~age, family = binomial(link=logit), data= donner)
+anova(mod3, mod3a, test = "Chisq")
+anova(mod3, mod3b, test = "Chisq")
+
+exp(coef(mod3))-1
+exp(confint(mod3))-1
+1/exp(confint(mod3))
+```
+**From the results of my analysis, we can see that both age and sex have a significant effect on survival likelihood at a 5% significance level. The model that includes both variables is preferred over either variable on its own as a predictor.**
+
+**We can see that females are 1/.2024437 = 4.9396 times as likely to survive than males, after controlling for age. However, the variance our estimate is large. We are 95% confident that the odds of females surviving vs. males is between 25.2460693 and 1.215434931 times as likely. It is clear that women at any age are more likely to survive than men, but the magnitude is uncertain based on our analysis. **
+
+**After controlling for Sex, we can see that each additional year in age reduces survival probability by an estimated 7.5%. We can be 95% confident that the predicted reduction for each additional year is between 1.4% and 17%.**
+
+**The plot below shows predicted survival probability for both males and females as age increases. We can see from the plot that males are much less likely to survive than females, and that older members are less likely to survive than younger members, regardless of sex.**
+
+```{r}
+x <- min(donner$age):max(donner$age)
+plot(x,1/(1+exp(-(coef(mod3)[1]+coef(mod3)[3]*x))),ylim=c(0,1),
+     type="l",col=4,lwd=2,xlab="Age",
+     ylab="Estimated Probability of Survival", cex.lab=1.3)
+lines(x,1/(1+exp(-(coef(mod3)[1]+coef(mod3)[3]*x + coef(mod3)[2]))),col=2,lwd=2)
+legend("topleft", legend=c("Females","Males"),
+       col=c(4,2),lwd=2)
+```
+
+#4)
+**The first thing to note is that the ANOVA model assumes normally distributed errors. Since the data is binomial count data and therefore not normal, it should be clear that this assumption is violated and any inference based on this model will not be valid. Next, note that the data is unbalanced which will have an effect on R's estimate of variance terms, which will effect the standard error of the estimate and could lead to incorrect conclusions. Finally, since the data is binomial we know that it is not linear, using a standard linear model will not give a correct estimate. **

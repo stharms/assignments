@@ -1,0 +1,199 @@
+###############
+##Part I#######
+#1
+
+simys <- function(b0,b1,xs){
+  #First generate the signal component
+  signal <- b0*(xs^b1)
+  #Then the noise component
+  eij <- rnorm(n=length(xs), mean = 0, sd = 1)
+  sigi <- 0.2*signal^1.25
+  noise <- sigi*eij
+  #output Yijs
+  Yij <- signal + sigi*eij
+  return(Yij)
+}
+
+#generate Xs (ages)
+Xs <- rep(1:12, each = 3)
+
+#simulate Ys
+Ys <- simys(b0=0.9,b1=1.3,xs=Xs)
+#Scatterplot
+pdf("P1simscatter.pdf")
+plot(Ys~Xs, main="Simulated Fish PCB Concentration vs. Age", xlab= "Age (years)", ylab = "PCB Concentration", pch=20, cex=2)
+
+dev.off()
+
+model.1 <- lm(Ys~as.factor(Xs))
+sds <- (0.5)*(t((Ys-fitted(model.1))^2)  %*% (diag(12)%x%c(1,1,1)))
+wts <- rep((1/(sds^2)),each=3)
+wls <- lm(Ys~Xs, weights = wts)
+
+####
+#4
+MCsim <- function(B0,B1, X, data, sims, M){
+  Mi <- 0
+  Bu <- array(dim=c(M,3,2))
+  Bg <- array(dim=c(M,3,2))
+  Bt <- array(dim=c(M,3,2))
+  repeat{
+    Mi <- Mi + 1
+    #generate data
+    ys <- simys(B0,B1,xs=X)
+    
+    #estimate WLS (estimator 1)
+      #get weights
+      model.1 <- lm(ys~as.factor(X))
+      sds <- (0.5)*(t((ys-fitted(model.1))^2)  %*% (diag(12)%x%c(1,1,1)))
+      wts <- rep((1/(sds^2)),each=3)
+      #estimate WLS model
+      wls <- lm(ys~X, weights = wts)
+      #get bias, variance, and MSE estimates for this sample
+      BuBias <- coef(wls) - c(0.9,1.3)
+      BuVar <- diag(vcov(wls))
+      BuMSE <- BuBias^2+BuVar
+      Bu[cnt,,1] <- cbind(BuBias,BuVar,BuMSE)[1,];
+      Bu[cnt,,2] <- cbind(BuBias,BuVar,BuMSE)[2,]
+    
+    #estimate GLS estimator with known power (estimator 2)
+      
+  }
+}
+
+
+
+### Helper function for GLS with known/fixed weights
+quadformknownw <- function(par, w, Y, ages){
+  sum((Y - par[2]*ages^par[1])^2*w)
+}
+
+MCsim <- function(B0,B1, ages, M){
+  
+  iter <- 0
+
+#### Store output for "beta-hat-U"
+  betahatUs <- matrix(ncol=2, nrow=M)
+  betahatT <- matrix(ncol=2, nrow=M)
+  betahatG <- matrix(ncol=2, nrow=M)
+  repeat{
+  iter <- iter + 1
+  #simulate data from "true" model
+  Y <- B0*ages^(B1) + 0.2*(B0*ages^(B1))^(1.25)*rnorm(length(ages), 0,1)
+  
+  lminit <- summary(lm(log(Y[Y>0])~log(ages[Y>0])))$coef
+  coefinit <- c(lminit[2], exp(lminit[1]))
+  
+  #### Code to estimate model using GLS with estimated weights and a power of 0.75
+  Si2 <- tapply(Y, ages, var)
+  wgts <- rep(1/Si2, each = 3)
+  betahatU <- optim(c(exp(coefinit[1]), coefinit[2]),  quadformknownw, w= wgts, Y=Y, ages=ages)$par
+  betahatUs[iter,] <- betahatU
+  
+  #estimate model using a power of 1.25
+  betahatT[iter,] <- as.vector(glsiter(coefinit, g1fun, g2fun, derfun, 1.25, Y, ages, 5))[[1]] 
+  #estimate model using a power of 1:
+  betahatG[iter,] <- as.vector(glsiter(coefinit, g1fun, g2fun, derfun, 1 , Y, ages, 5))[[1]] 
+
+  if(iter == M){break}
+  }
+  return(list(Bu=betahatUs, Bg=betahatG, Bt=betahatT))
+}
+
+fivehund <- MCsim(B0=0.9,B1=1.3,ages = Xs, M=500)
+fivethous <- MCsim(B0=0.9,B1=1.3,ages = Xs, M=5000)
+#500 sims
+biasU <- apply(fivehund$Bu, 2, mean) - c(1.3,0.9)
+biasG <- apply(fivehund$Bg, 2, mean) - c(1.3,0.9)
+biasT <- apply(fivehund$Bt, 2, mean) - c(1.3,0.9)
+seU <- sqrt((1/(500*499))*apply((sweep(fivehund$Bu,2,c(1.3,0.9), FUN="-")-(apply(fivehund$Bu, 2, mean) - c(1.3,0.9)))^2,2,sum))
+seG <- sqrt((1/(500*499))*apply((sweep(fivehund$Bg,2,c(1.3,0.9), FUN="-")-(apply(fivehund$Bg, 2, mean) - c(1.3,0.9)))^2,2,sum))
+seT <- sqrt((1/(500*499))*apply((sweep(fivehund$Bt,2,c(1.3,0.9), FUN="-")-(apply(fivehund$Bt, 2, mean) - c(1.3,0.9)))^2,2,sum))
+
+#VarU <- apply(fivehund$Bu,2,mean)^2 - apply(fivehund$Bu^2, 2, mean)
+VarU <- apply((fivehund$Bu - apply(fivehund$Bu, 2, mean))^2,2,mean)
+  gvu <- (fivehund$Bu - apply(fivehund$Bu, 2, mean))^2
+  seVarU <- sqrt((1/(500*499))*apply(sweep(gvu,MARGIN = 2, FUN="-", VarU),2,sum))
+VarG <- apply((fivehund$Bg - apply(fivehund$Bg, 2, mean))^2,2,mean)
+VarT <- apply((fivehund$Bt - apply(fivehund$Bt, 2, mean))^2,2,mean)
+
+MSEu <- biasU^2 + VarU
+MSEg <- biasG^2 + VarG
+MSEt <- biasT^2 + VarT
+
+rbind(c(biasU[1],biasG[1],biasT[1]),c(VarU[1],VarG[1],VarT[1]), c(MSEu[1],MSEg[1],MSEt[1]))
+rbind(c(biasU[2],biasG[2],biasT[2]),c(VarU[2],VarG[2],VarT[2]), c(MSEu[2],MSEg[2],MSEt[2]))
+
+#5000 sims
+biasU2 <- apply(fivethous$Bu, 2, mean) - c(1.3,0.9)
+biasG2 <- apply(fivethous$Bg, 2, mean) - c(1.3,0.9)
+biasT2 <- apply(fivethous$Bt, 2, mean) - c(1.3,0.9)
+
+VarU2 <- apply((fivethous$Bu - apply(fivethous$Bu, 2, mean))^2,2,mean)
+VarG2 <- apply((fivethous$Bg - apply(fivethous$Bg, 2, mean))^2,2,mean)
+VarT2 <- apply((fivethous$Bt - apply(fivethous$Bt, 2, mean))^2,2,mean)
+
+MSEu2<- biasU2^2 + VarU2
+MSEg2<- biasG2^2 + VarG2
+MSEt2 <- biasT2^2 + VarT2
+
+rbind(c(biasU2[1],biasG2[1],biasT2[1]),c(VarU2[1],VarG2[1],VarT2[1]), c(MSEu2[1],MSEg2[1],MSEt2[1]))
+rbind(c(biasU2[2],biasG2[2],biasT2[2]),c(VarU2[2],VarG2[2],VarT2[2]), c(MSEu2[2],MSEg[2],MSEt2[2]))
+
+##########################################################
+##########################################################
+##########################################################
+###Part 2##########
+#read in data and remove 1 na case
+gulls <- data.frame(read.csv(file="gullsdata.csv", header=T))
+gulls <- gulls[-(which(is.na(gulls$bm))),]
+gammamodel <- glm(data=gulls, oxy~bm, family=Gamma(link = "log"))
+fits <- fitted(gammamodel)
+
+simbasicglm <- function(b, Xmat, phi, linkInv, random, ns = 1,returnmu=F){
+  eta <- Xmat%*%b; #return(eta)
+  mu <- linkInv(eta) ; if(returnmu==T){return(mu)}
+  random(mu, phi, ns)
+}
+
+GammaRan <- function( mu, phi, ns){
+  scale <- mu/phi
+  rgamma(length(mu), shape = 1/phi,scale = mu*phi)
+}
+
+boots <- function(modelin, covariates, nsim){
+  cnt=0
+  probsout <- c()
+  disps <- c()
+  coefs <- matrix(ncol=2,nrow=nsim)
+  repeat{
+    cnt=cnt+1
+    #simulate Ys
+    simoxys <- simbasicglm(coef(modelin), cbind(1,covariates), phi = summary(modelin)$dispersion, linkInv = exp, random = GammaRan)
+    #re-estimate model
+    newglm <- glm(simoxys~covariates, family=Gamma(link = "log"))
+    #find probability of oxy > 6 given bm=1700
+    munew <- exp(coef(newglm)[1]+coef(newglm)[2]*1700)
+    phinew <- summary(newglm)$dispersion
+    probnew <- 1 - pgamma(20 , shape = 1/phinew, scale=munew*phinew)
+    probsout[cnt] <- probnew
+    disps[cnt] <- phinew
+    coefs[cnt,] <- coef(newglm)
+    if(cnt==nsim){break}
+  }
+  return(list(probsout, disps, coefs))
+}
+
+probestimates <- boots(gammamodel,cbind(gulls$bm), nsim=1000)
+summary(probestimates[[3]])
+pcts <- quantile(probestimates[[1]], probs=c(.025,.5,.975))
+
+mug <- exp(coef(gammamodel)[1]+coef(gammamodel)[2]*1700)
+phig <- summary(gammamodel)$dispersion
+phat <- 1 - pgamma(20 , shape = 1/phig, scale=mug*phig)
+comps <- probestimates[[1]]
+compspct <- quantile(comps,probs=c(0.025,.975))
+
+phat^2/pcts[1]
+phat^2/pcts[3]
+

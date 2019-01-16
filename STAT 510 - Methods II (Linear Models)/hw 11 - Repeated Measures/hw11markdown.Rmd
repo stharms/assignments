@@ -1,0 +1,143 @@
+---
+title: "Homework 11"
+author: "Steve Harms"
+date: "April 15, 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(nlme)
+library(MASS)
+```
+#2
+##b)
+```{r}
+heartrate <- read.table(file="HeartRate.txt",header=T)
+heartrate$woman <- factor(heartrate$woman); heartrate$drug <- factor(heartrate$drug);heartrate$time <- factor(heartrate$time)
+glmc <- lme(y~drug*time, data=heartrate, random = ~1|woman)
+bvec <- glmc$coefficients$fixed
+#The final line in the anova table should give us the correct test for interactions
+anova(glmc)[4,]
+```
+**From the last line in the ANOVA table, we have the correct test. For the null hypothesis of no interactions, we get a test statistic (F-value) of 7.115244, with 6 and 36 degrees of freedom. The p-value is <.0001, indicating that we have strong evidence to reject the null hypothesis and conclude that there are statistically significant evidence for interactions between drug type and time for at least 1 combination.**
+
+##c)
+**The null hypothesis is that $\mu_{14} = \mu_{24} =\mu_{34}$ , the cell means are equal after accounting for random effect of woman. We can test this using a CB test as follows, which will get us two test statistics. One compares group 1 mean to group 2, the other group 1 to group 3 based on the R-parameterization.**
+```{r}
+C1 <- c(0,1,rep(0,times=8),1,0)
+C2 <- c(0,0,1,rep(0,times=7),0,1)
+C<-rbind(C1,C2)
+est<-C%*%bvec
+se <- sqrt(C%*%glmc$varFix%*%t(C))
+#test statistic 1 and its p-value
+est[1]/se[1,1]
+pt(est[1]/se[1,1], df=48, lower.tail=F)
+#test statistic 2 and its p-value
+est[2]/se[2,2]
+pt(est[2]/se[2,2], df=48, lower.tail=F)
+```
+**Both test statistics are t-distributed with 48 = 60-(5-1)*(4-1) degrees of freedom. Both p-values are greater than .05, indicating that we do not have enough statistically significant evidence to reject the null hypothesis. I conclude that the mean heart rate for all three drugs 15 minutes after treatment are not different from each other.**
+
+##d)
+```{r}
+estd <- C1%*%bvec
+sed <- sqrt(t(C1)%*%vcov(glmc)%*%C1)
+upd <- estd + qt(.975,48)*sed
+lowd <- estd - qt(.975,48)*sed
+#Below is the confidence interval
+c(lowd, upd)
+```
+
+#3)
+##a)
+```{r}
+alm <- gls(y~drug*time, data=heartrate, correlation=corCompSymm(form=~1|woman))
+rho <- 0.7769134
+alm$sigma^2
+```
+**From the above model, we get the REML estimate of W to be a 4x4 matrix with 1 on the diagonals and $\rho = 0.7769134$ on the off-diagonals, multiplied by $\sigma^{2} = 37.49167$.**
+
+##b)
+```{r}
+b.aic <- -2*logLik(alm) + 2*(12+2)
+b.bic <- -2*logLik(alm) + (12+2)*log(60-12)
+b.aic
+b.bic
+```
+
+##c)
+```{r}
+clm <- gls(y~drug*time, data=heartrate, correlation=corAR1(form=~1|woman))
+rho <- 0.8277814
+clm$sigma^2
+```
+**From the above model, we get the REML estimate of W to be a 4x4 matrix with 1 on the diagonals and $\rho = 0.8277814$ on the 1st off-diagonal,$\rho^{2} = 0.685222$ on the 2nd off-diagonal,$\rho^{3} = 0.5672141$ on the 3rd off-diagonal, and multiplied by constant $\sigma^{2} = 36.01068$.**
+
+##d)
+```{r}
+d.aic <- -2*logLik(clm) + 2*(12+2)
+d.bic <- -2*logLik(clm) + (12+2)*log(60-12)
+d.aic
+d.bic
+```
+
+##e)
+```{r}
+elm <- gls(y~drug*time, data=heartrate, correlation=corSymm(form=~1|woman))
+elm
+elm$sigma^2
+```
+**From the above model, we get the REML estimate of W to be a symmetric 4x4 matrix with 1 on the diagonals and the lower off-diagonals to be the highlighted portion above, and multiplied by constant $\sigma^{2} = 37.00932$.**
+
+##f)
+```{r}
+f.aic <- -2*logLik(elm) + 2*(12+7)
+f.bic <- -2*logLik(elm) + (12+7)*log(60-12)
+f.aic
+f.bic
+```
+
+##g)
+```{r}
+anova(alm,clm,elm)
+```
+**From the above, we see that AIC and BIC are minimized for the model in c), which is the AR(1) model, so that correlation structure is preferred for this data set.**
+
+##h)
+```{r}
+esth <- C1%*%coef(clm)
+seh <- sqrt(t(C1)%*%vcov(clm)%*%C1)
+uph <- esth + qt(.975,48)*seh
+lowh <- esth - qt(.975,48)*seh
+#The 95% confidence interval is:
+c(lowh, uph)
+```
+#4)
+##a)
+```{r}
+d <- read.table(file="ExamScores.txt",header=T)
+d$exam <- factor(d$exam)
+d$student <- factor(d$student)
+scoremod <- lme(score ~ 0 + exam, random = ~ 1 | student, weights = varIdent(form = ~ 1 | exam), data = d)
+scoremod
+sigs <- 13.43525^2
+sig1 <- 7.933829^2 ; sig2 <- .9787570*sig1 ; sig3 <- .5222791*sig1
+sigs
+sig1
+sig2
+sig3
+```
+
+**From the model, we can quickly get $\sigma^{2}_{s} = 13.43525^{2} = 180.5059$. From the documentation for varIdent, "For identifiability reasons, the coefficients of the variance function represent the ratios between the variances and a reference variance (corresponding to a reference group level)." So if we set $\sigma^{2}_{1} = \sigma^{2}_{e} = 7.933829^{2} = 62.94564$. To get the other two components, take the estimated ratio from the model and multiply times $\sigma^{2}_{1}$:  $\sigma^{2}_{2}=61.60849$ and $\sigma^{2}_{3}=32.87519$ **
+
+##b)
+```{r}
+eblup <- fixed.effects(scoremod)[3] + random.effects(scoremod)[1,1]
+eblup
+```
+

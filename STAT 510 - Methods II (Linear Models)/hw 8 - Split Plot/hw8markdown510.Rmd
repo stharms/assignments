@@ -1,0 +1,94 @@
+---
+title: "Homework 8"
+author: "Steve Harms"
+date: "March 13, 2018"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(MASS)
+library(lsmeans)
+library(tidyverse)
+library(phia)
+```
+```{r}
+fabric <- read.table(file="fabric.txt", header = T)
+fabric$surface <- as.factor(fabric$surface)
+fabric$filler<-factor(fabric$filler)
+fabric$p <- factor(fabric$p)
+fabric <- fabric %>% arrange(filler)
+```
+
+#4)
+##a)
+```{r}
+#estimate the linear model
+cm <- lm(data = fabric, formula = y ~ surface + filler + p + surface:filler + surface:p + filler:p + surface:filler:p)
+cm$coefficients
+c <- c(cm$coefficients)
+#our estimate is just the combination of coefficients
+c[1]+c[3]+c[4]+c[9] 
+#and the standard error is square root of mse/2
+mse <- anova(cm)$'Mean Sq'[8]
+se <- sqrt(mse/2)
+se
+#We can check our answer using the lsmeans package
+lsmeans(cm, ~ surface + filler + p + surface:filler + surface:p + filler:p + surface:filler:p)[7]
+```
+
+##b)
+```{r}
+#lsmeans are the averages of observations of for each filler type across proportion and treatment
+lsmeans(cm, ~filler)
+```
+
+##c)
+```{r}
+#same as above, but now we just average across filler type
+lsmeans(cm, ~surface+p)[2]
+```
+
+##d)
+```{r}
+#the standard error is just square root of (mse*(1/8 + 1/8)), and should match what we have above
+sqrt(mse*(1/8+1/8))
+```
+
+##e)
+```{r}
+#we can compute the test statistic using the answer from b)
+t = (214.75-181.08333333)/sqrt(mse*(1/12+1/12))
+fst = t^2
+fst
+pf(fst, 1, 12, lower.tail = F)
+#this should be close to the F statistic in the second line of the ANOVA table:
+anova(cm)[2,]
+```
+
+##f)
+```{r}
+#Three-way interaction is added last, so we can just use the last line of the ANOVA table for our reduced/full test
+anova(cm)[7,]
+#Numerator df is 2, denominator df is 12
+```
+
+##g)
+```{r}
+#No f/p two way interaction also restricts the 3-way interaction to be 0 as well
+#We can just add SS from the last 2 lines of ANOVA table to get our error SS reduction for F test:
+redss <- anova(cm)[7,2]+anova(cm)[6,2]
+numdf <- anova(cm)[7,1]+anova(cm)[6,1]
+fstat <- (redss/numdf)/mse
+fstat
+pf(fstat,numdf,12,lower.tail=F)
+#above should match what we get with a reduced/full F test:
+redmm <- lm(data=fabric, formula = y~surface+filler+p+p:surface+filler:surface)
+anova(cm,redmm)
+```
+

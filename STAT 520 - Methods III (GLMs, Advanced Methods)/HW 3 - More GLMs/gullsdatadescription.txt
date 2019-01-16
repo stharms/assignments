@@ -1,0 +1,28 @@
+====================================
+Explanations to the file "input.csv"
+====================================
+
+input.csv is a semicolon-delimited table consisting of 23 columns and 111 rows (excluding a row with column names).
+Each row corresponds to data from one individual glaucous gull.
+The columns contain the following data,
+
+ring:	unique identifier [individual ring number].
+x97 ... x04:	sighting history from 1997 to 2004 [0, not seen; 1, seen].
+sex:	sex [1, male; 2, female].
+bm:	body mass [g].
+hb:	head+bill length [mm].
+cond:	body condition [residuals from the regression of ln(bm) against ln(hb) for each sex separately].
+hcb:	hexachlorobenzene (HCB) concentration in blood [ng / g wet weight].
+oxy:	oxychlordane concentration in blood [ng / g wet weight].
+dde:	p,p'-dichlorodiphenyldichloroethylene (DDE) concentration in blood [ng / g wet weight].
+p99:	polychlorinated biphenyl (PCB) congener  99 concentration in blood [ng / g wet weight].
+p118:	polychlorinated biphenyl (PCB) congener 118 concentration in blood [ng / g wet weight].
+p138:	polychlorinated biphenyl (PCB) congener 138 concentration in blood [ng / g wet weight].
+p153:	polychlorinated biphenyl (PCB) congener 153 concentration in blood [ng / g wet weight].
+p170:	polychlorinated biphenyl (PCB) congener 170 concentration in blood [ng / g wet weight].
+p180:	polychlorinated biphenyl (PCB) congener 180 concentration in blood [ng / g wet weight].
+pc1:	1st principal component of all ln-transformed organochlorine levels (i.e., hcb ... p180).
+
+There was one missing value in the "bm" column, indicated by "NA". The respective body condition was set at the sample mean (i.e., zero).
+
+For questions, please contact Kjell Einar Erikstad (kjell.e.erikstad@nina.no).

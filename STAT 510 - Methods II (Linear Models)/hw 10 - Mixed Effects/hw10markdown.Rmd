@@ -1,0 +1,63 @@
+---
+title: "Homework 10"
+author: "Steve Harms"
+date: "April 7, 2018"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include = FALSE}
+library(nlme)
+library(tidyverse)
+Yield <- read.table(file = "hw10GenotypeYield.txt", header=T)
+Yield$genotype <- factor(Yield$genotype)
+```
+#2)
+##a)
+```{r}
+mod1 <- lm(data = Yield, yield~genotype)
+blues <- mod1$coefficients + mod1$coefficients[1]
+blues[1] <- blues[1]/2
+blues
+```
+
+##b)
+```{r}
+mod <- lme(data = Yield, yield~1, random = ~1|genotype)
+mod
+sigmag <- 2.686537
+sigmae <- 9.669021
+```
+
+##c)
+```{r}
+blups <- mod$coefficients$fixed +
+  mod$coefficients$random$genotype + mod$coefficients$random$genotype[1]
+blups[1] <- mod$coefficients$fixed[1] + mod$coefficients$random$genotype[1]
+blups
+```
+
+##d)
+The BLUEs and BLUPs do not have a perfectly linear relationship because when we take into account the within-genotype variance, we can get better estimates of the yield for each genotype. The variation from the line y=x is due to taking the random effect into account in prediction. However, note that there are approximately the same number of points above and below the line, because the expected value of our random effect is 0.
+```{r}
+plot(x=blues, y = blups) + abline(a = 0, b = 1, col = "blue", lwd = 1)
+```
+
+##e)
+```{r}
+ests <- data.frame(unique(Yield$genotype),as.numeric(blues), blups)
+names(ests) <- c("genotype", "blues", "blups")
+ests %>% arrange(desc(blues)) %>% head()
+```
+
+##f)
+```{r}
+ests%>% arrange(desc(blups)) %>% head()
+```
+
+##g)
+The top BLUEs do not match the top BLUPs because some of the genotypes are penalized for having higher variance within their groups (genotype 9, for example). After we take the random effect due to genotype into account, our best estimates of group means change.
