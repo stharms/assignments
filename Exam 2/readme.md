@@ -1,0 +1,1 @@
+This is a take-home exam assignment for STAT 501 - Multivariate Statistics at Iowa State. The general idea was to scrape some data from the web and demonstrate how multivariate methods (i.e., Multivariate HTs, Principal Components, Factor Analysis, etc.) can be implemented
