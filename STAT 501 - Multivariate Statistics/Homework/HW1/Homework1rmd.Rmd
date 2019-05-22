@@ -1,0 +1,64 @@
+---
+title: "Homework 1"
+author: "Your name"
+date: "1/21/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Due: 1/31/2019 before 11pm. Submit in Canvas (file upload). Rmd file and the html output file (submit both files) are strongly recommended, but not required.
+
+1. Watch the video lectures `Introduction`, `Algebra` and `Visualization` in the link https://iastate.box.com/s/db0ja0f8248yfb3xr2e6ybj0g5iprexh. 
+<br> <br>
+
+2. (10 pts) Let $X = (X_{1}, \ldots, X_{n})'$ be the $n \times p$ data matrix, where $X_{i} = (X_{i1}, \ldots, X_{ip})'$ is the $i$th onservation. Let $\bar{X} = n^{-1} \sum_{i = 1}^{n} X_{i}$ be the sample mean. Let $s_{j_1j_2} = n^{-1} \sum_{i = 1}^{n} (X_{ij_1} - \bar{X}_{j_1})(X_{ij_2} - \bar{X}_{j_2})$ be the sample covariance between the $j_1$th and $j_2$th variables. Let $S = (s_{j_1j_2})$ be the sample covariance matrix.
+Show that $$S = \frac{1}{n}X' X - \bar{X}' \bar{X}.$$
+<br>
+
+3. (10 pts) Find ALL the eigenvalues and their eigenvectors for the following matrices
+
+    - $\Sigma = \sigma \mathbb{1} \mathbb{1}'$ where $\mathbb{1} = (1, 1, \ldots, 1)'$ is the $p$ dimensional vector of 1.
+    - $\Sigma = \mbox{diag}(\sigma_{1}, \ldots, \sigma_{p})$ is a diagonal matrix. 
+ <br> <br>
+
+4. (10 pts) Show that $\mbox{tr}(AB) = \mbox{tr}(BA)$. 
+<br> <br>
+
+5. (10 pts) Given two variables in the data matrix X (say the $j_1$th and $j_2$th variables). Show that their sample correlation will not change by standardization.
+<br> <br>
+
+6. (15 pts) Given a data matrix $X$ as in Question 2. Assume the means of the $p$ variables are zero. Let $S = \frac{1}{n}X' X$ be the sample covariance matrix. Let $\lambda_{1} \geq \lambda_{2} \geq \ldots \geq \lambda_{p}$ be the ordered eigenvalues of $S$. Let $e_{1}, \ldots, e_{p}$ be their corresponding orthogonal eigenvectors with unit length.
+In multivariate analysis, we usually want to use the first few eigenvalues and eigenvectors to represent the original data, as a tool of dimension reduction. 
+
+    - On one aspect, let $$S_{m} = \lambda_{1}e_{1}e_{1}' + \ldots + \lambda_{m}e_{m}e_{m}'$$ be an approximate of $S$ for $m < p$. Calculate $\mbox{tr}\{(S - S_{m})^{2}\}$ and $\mbox{tr}\{(S - S_{m})^{2}\} / \mbox{tr}(S^{2})$, where $\mbox{tr}(S^{2})$ can be regarded as the total variation of the data.
+    - On another aspect, $\{Xe_{1}, \ldots, Xe_{m}\}$ are the transformed data by the eigenvectors. Calculate the sample covariance $S_{t}$ of $\{Xe_{1}, \ldots, Xe_{m}\}$ (regard the sample mean as 0). What is $\mbox{tr}(S_{t}^{2})$ comparing to $\mbox{tr}(S^{2})$?
+    - What can you conclude on the dimension reduction by eigenvectors from the above two points?
+<br> <br>
+
+7. (15 pts) Use the **ggplot2** package to visualize the data `iris` in R.
+
+    - Make a scatter plot for the variables `Sepal.Length` and `Sepal.Width` colored by `Species`. What can you see?
+    - Make a scatter matrix for every pairs of the variables, colored by `Species`. What can you see?
+    - Calculate the sample mean for each species.
+    - Use `stars()` function to make a star plot for the sample means of each species to illustrate their potential differences. Comment.
+<br> <br>
+
+8. (10 pts) Use the `fbiwide` data in `classdata` package. Use the code `devtools::install_github("heike/classdata")` to install this package if you haven't done so. Use **ggplot2** package.
+    
+    - Compare the log transformed number of burglaries by motor vehicle thefts over States, coloured by years. Only focus on comparing California, Colorado, Iowa, Illinois, District of Columbia and New York (Use `facet`).
+    - We all know population is an important factor. How to compare different states by standardized population?
+<br> <br>
+
+9. (20 pts) The 109th US Congress, comprising the Senate and the House of Representatives, was the legislative branch of the US government from January 3, 2005 to January 3, 2007. During this period, 542 bills were voted on by the US Senate. Each of 100 Senators either voted in favor or against or failed to record their vote on each of these bills. Details voting preferences of the 100 senators on these bills is provided in the 'senate-109.csv' file available on Canvas homework folder.
+<br> <br>
+In the 'senate-109.csv' file, "1" denotes voting in favor, "-1" denotes voting against while "0" means a vote not recorded. The voting resolutions are in the rows while the votes are the columns. Also,the first row of the file contains their names and states. The file `senate-109-party.csv` contains the last name and the party ID of the senators.
+
+   - Extract the last names of the senators from 'senate-109.csv' file. 
+   - Combine the two dataset together. Use rows to represent senators, and columns to indicate bills. An additional column to show the party ID of each senator.
+   - Use Andrews’ curves, display the voting preferences of each senator. Use red for “Republican”, blue for “Democratic” and purple for “Independent”. Comment. Andrews’ curves (https://en.wikipedia.org/wiki/Andrews_plot) is based on Fourier series to visualize high-dimensional data. Use `andrews()` function in the `andrews` package (https://rdrr.io/cran/andrews/man/andrews.html).
+   - What is a good measure for the "closeness" between two senetors? Is Pearson correlation an ideal choice? Is the measure you chose a valid distance measure?
+   
+   

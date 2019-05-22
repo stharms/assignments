@@ -1,0 +1,168 @@
+---
+title: "STAT 501 Homework 2"
+author: "Steve Harms"
+date: "February 8, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F)
+```
+
+First, I make a few functions to make the data generation and estimation easy, and test them. The results of the simulation are at the bottom.
+```{r}
+library(MASS)
+library(tidyverse)
+library(kableExtra)
+
+#generate covariates
+covariategen <- function(n,p){
+  mvnSig <- matrix(0,ncol=p,nrow=p)
+  i=0
+  repeat{
+    i=i+1
+    j=0
+    repeat{
+      j=j+1
+      mvnSig[i,j] <- 0.75^(abs(i-j))
+      if(j==p){break}
+    }
+    if(i==p){break}
+  }
+    covmat <- mvrnorm(n=n, mu=rep(0,times=p), Sigma = mvnSig)
+    Betas <- rep(c(1,0), each=p/2)
+    return(list(xis = covmat, B=Betas))
+}
+
+errorgen <- function(n, dist, df=0){
+  eis <- rnorm(n=n, mean=0, sd=1)
+  if(dist=="t"){
+    eis = rt(n=n, df=df, ncp=0)
+    eis = eis/sd(eis)
+  }
+  if(dist=="exponential"){
+    eis = rexp(n=n, rate=1)
+    eis = eis-mean(eis)
+  }
+  return(eis)
+}
+
+simulator <- function(n,p, dist, dof,reps){
+        estimates <- matrix(nrow=reps,ncol=p)
+        cicovs <- matrix(nrow=reps,ncol=p)
+  i=0
+  repeat{
+    i=i+1
+  #generate data
+  covs <- covariategen(n,p)
+  xis <- covs$xis
+  Betas <- covs$B
+  errors <- errorgen(n, dist=dist, df=dof)
+  yis <- xis%*%Betas + errors
+  #estimate
+  lm.temp <- lm(formula=yis~xis)
+  estimates[i,] <- coef(lm.temp)[-1]
+  cis <- confint(lm.temp, level=0.95)
+  cicovs[i,] <- c(cis[-1,1] <= Betas & Betas <= cis[-1,2])
+  if(i==reps){break}
+  }
+  return(list(ests=estimates, CIcovs = cicovs))
+}
+
+
+#PUT ALL OBS IN A LIST
+listify<- function(nlist,distlist,dflist,reps,p){
+  estarray <- array(dim=c(length(nlist), length(distlist), reps, p))
+  ciarray <- estarray
+  nc=0
+  repeat{
+    nc=nc+1
+      dc = 0
+      repeat{
+        dc=dc+1
+        n=nlist[nc];  distf = distlist[dc]; ddf=dflist[dc]
+        sims <- simulator(n=n, p=p, dist=distf, dof=ddf, reps = reps)
+        estarray[nc,dc,,] <- sims$ests
+        ciarray[nc,dc,,] <- sims$CIcovs
+        if(dc==length(distlist)){break}
+    }
+    if(nc==length(nlist)){break}
+  }
+  return(list(CIs = ciarray, ests=estarray))
+}
+```
+**First let's test our covariate data generating function to make sure it's generating correctly:**
+```{r}
+covariategen(n=100,p=8)$xis %>% pairs 
+```
+
+**Next, we test our error term function:**
+```{r}
+errorgen(n=500,dist="exponential") %>% hist()
+errorgen(n=500, dist="t", df=10) %>% hist()
+```
+
+
+
+**It looks like the covariates and errors are being generated correctly.**
+
+**Now, we can simulate all of the 16 combinations we want to study in one command:**
+```{r}
+nlist <- c(40, 80)
+plist <- c(10, 30)
+errordistlist <- c("normal", "t","t", "exponential")
+dflist <- c(0,3,10,1)
+set.seed(112358)
+
+smallp <- listify(nlist=nlist,distlist=errordistlist,dflist=dflist,reps=1000,p=10)
+largep <- listify(nlist=nlist,distlist=errordistlist,dflist=dflist,reps=1000,p=30)
+
+colnames(smallp$CIs) <- colnames(smallp$ests) <- colnames(largep$ests) <-colnames(largep$CIs) <- paste(errordistlist, c("", "3","10",""))
+rownames(smallp$CIs) <- rownames(smallp$ests) <- rownames(largep$ests) <-rownames(largep$CIs) <- c("n=40", "n=80")
+```
+
+Finally, summarize the data and put it into some tables:
+```{r}
+#summarize the data
+#this could be done much more efficiently but it's the same result
+p9 <- smallp$CIs %>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p10 <- smallp$ests %>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p1 <- smallp$CIs[,,,1:5]%>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p2 <-smallp$ests[,,,1:5]%>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p3 <- smallp$CIs[,,,6:10]%>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p4 <- smallp$ests[,,,6:10]%>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p11 <- largep$CIs %>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p12 <- largep$ests %>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p5<- largep$CIs[,,,1:15]%>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p6<-largep$ests[,,,1:15]%>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p7<- largep$CIs[,,,16:30]%>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+p8<-largep$ests[,,,16:30]%>% apply(c(1,2,4),mean) %>% apply(c(1,2), mean) %>% t
+resultsp10 <-cbind(p2,p1,p4,p3,p10,p9)[,c(seq(1,11,by=2),seq(2,12,by=2))]
+resultsp30 <-cbind(p6,p5,p8,p7,p12,p11)[,c(seq(1,11,by=2),seq(2,12,by=2))]
+colnames(resultsp10) <- colnames(resultsp30) <- rep(c("Est", "CIcovg"),times=6)
+
+resultsp10 %>% round(4) %>% kable(caption="p=10") %>%  kable_styling(c("striped", "bordered")) %>%
+  add_header_above(c(" ", "B=1" = 2, "B=0" = 2, "All B" = 2, "B=1" = 2, "B=0" = 2, "All B" = 2)) %>%
+  add_header_above(c(" ", "n=40"=6, "n=80"=6))
+  
+resultsp30 %>% round(4) %>% kable(caption="p=30") %>%  kable_styling(c("striped", "bordered")) %>%
+  add_header_above(c(" ", "B=1" = 2, "B=0" = 2, "All B" = 2, "B=1" = 2, "B=0" = 2, "All B" = 2)) %>%
+  add_header_above(c(" ", "n=40"=6, "n=80"=6))
+```
+
+**Now that we have all of our results together, we can answer the questions at hand.**
+
+**1) How does sample size affect the estimates?**
+
+We can see from both tables above that, regardless of the error distribution, the estimates are approximately unbiased. The empirical CI coverage appears to improve slightly by increasing sample size from n=40 to n=80: the empirical coverage is slightly closer to the nominal 95% when the sample size is larger. Additionally, the estimate of the bias is slightly smaller for larger values of n. This holds for both p=10 (top table) and p=30 (bottom table): the Monte Carlo estimates on the right side are closer to the nominal values than those on the left side of the tables.
+
+**2) How does dimension affect the estimates?**
+
+Now we compare differences between p=10 and p=30, i.e., across the 2 tables above. Interestingly, there are no noticeable differences in estimation or confidence interval coverage between the two, after controlling for error distribution and sample size. Comparing element-wise between our two tables, there is no noticeable pattern. This is somewhat unexpected because we know the covariates are correlated and thus we should likely see some sort of bias due to autocorrelation. However this is not visible in our data, possibly due to our Monte Carlo sample size of 1000 which allows for nearly asymptotic estimates of the bias.
+
+**3) How does error distribution affect the estimates?**
+We now compare rows in each table. Again, there is little to note. It appears that the t-distribution with 3 degrees of freedom (heavy tails!) tends to have empirical coverage that is below the nominal rate of 95%. This might make sense because our confidence intervals were constructed using the normal distribution, which has smaller variance. However, we need to recall that we standardized all of our errors to be 0 mean and variance 1 variables. The t-distribution errors should thus look approximately the same as the normal distribution after standardizing, so we should consider differences among the first 3 rows to be due to noise. I ran this with different seeds and had different results, so it is almost certainly due to noise in this case.
+
+However, the exponential distribution is not symmetric, so we might expect some irregularities with that distribution. In reality, the empirical coverage is slightly below the nominal rate for the p=30/n=40 with exponential errors. This might support the claim that the normal-theory confidence interval may not be perfect when we know our distribution is skewed, however it is not enough to overturn the asymptotic results.
+
+**In conclusion, there is little or no evidence that the error distribution has a significant impact on the confidence interval coverage for ordinary least squares regression. We can conclude that the inference procedure is quite robust to departures from normality.**

@@ -1,0 +1,208 @@
+---
+title: "Homework 6"
+author: "Steve Harms"
+date: "April 6, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(classdata)
+library(car)
+library(ggplot2)
+library(matrixcalc)
+source('PCs.proportion.variation.enuff.R')
+```
+
+##1. Consider a simple version of functional data regression on the `fbiwide` data in `classdata` package. Drop the variable `Rape` due to too many missing values.
+
+###(a) Use the log transformation of `crime counts over Population` (expect `Rape`) as response. Use $State$, $Year - 1961$, $(Year - 1961)^2$, $(Year - 1961)^3$ as covariates. Fit the regression model and output the anova analysis results for each covariate. (Delete the obervations with missing values in the data, after dropping the variable `Rape`.) 
+```{r}
+#transform the data to log population
+fbi <- fbiwide %>% select(-Rape) %>% 
+  mutate_at(vars(5:11), funs(./Population)) %>% mutate_at(5:11, funs(log(.)))
+#get covariates
+fbi <- fbi %>% mutate(Y.1 = Year-1961, Y.2=(Y.1)^2, Y.3=(Y.1)^3)
+#drop NAs
+fbi <- fbi %>% filter(complete.cases(.))
+
+
+#regression model and MANOVA
+fit.lm <- lm(cbind(fbi %>% select(5:11) %>% as.matrix()) ~ Y.1 + Y.2 + Y.3 + as.factor(State) , data = fbi)
+fit.manova <- Manova(fit.lm)
+#this output is long!
+fit.lm %>% summary()
+#MANOVA output
+fit.manova %>% summary()
+```
+  
+###(b) Write your own code to reproduce the Pillai test statistic in the anova table for $(Year - 1961)^3$.
+```{r}
+#Pillai : tr[(Sig_1 - Sig)Sig^-1) <- This looks wrong? I use a different formula to get correct matching answer
+library(matrixcalc)
+
+matrix.trace(solve((fit.manova$SSP$Y.3+fit.manova$SSPE))%*%(fit.manova$SSP$Y.3))
+```
+    
+###(c) Use ggplot to plot the regression curve of `Burglary` over time for all the states.
+```{r}
+#regression curve fitted values are in fit.lm$fitted.values[,2]
+ggplot(fbi) + geom_line(aes(x=Year, y=fit.lm$fitted.values[,2], col=as.factor(State))) +
+  ggtitle("Burglary Rate (fitted) by Year and State")+ labs(y="Log Burglary Rate / population")
+```
+    
+###(d) Construct simultaneous 95% prediction intervals for all the responses in the model at Iowa in 2019 with population 3160000.
+
+I did this using the formula directly, although there's surely an easy way to do it directly in R.
+```{r}
+#prediction vector
+#Iowa is the 19th row of coefficients
+which(row.names(fit.lm$coefficients)=="as.factor(State)Iowa")
+Y.p <- 2019-1961
+predv <- c(1,Y.p,Y.p^2,Y.p^3, rep(0,times=14),1,rep(0, times=51-15)) 
+#prediction. Population was not included in our regression model?
+pred <- predv %*% fit.lm$coefficients
+pred
+#if we want to get total number of predicted crimes (with population), convert back to regular scale
+pred %>% exp()*3160000
+#95% prediction intervals
+#need margins of error
+p <- ncol(fit.lm$fitted.values)
+r <- fit.lm$rank - 1
+n <- nrow(fit.lm$fitted.values)
+fscale <- (p*(n-r-1))/(n-r-p)
+fvalue <- qf(.05, p, n-r-p, lower.tail=F)
+betavcov <- (model.matrix(fit.lm) %>% t()) %*% model.matrix(fit.lm)
+prederrmat <- t(predv) %*% solve(betavcov) %*% predv
+prederr <- 1+prederrmat
+varerr <- (n/(n-r-1))*diag(cov(fit.lm$residuals))
+merror <- sqrt(fscale*fvalue)*sqrt(prederr%*%varerr)
+
+lbs <- pred - merror
+ubs <- pred + merror
+pred.intervals <- rbind(ubs,lbs) %>% t()
+#on log sca
+pred.intervals
+#on same scale, assuming Iowa's population is 3160000
+#but now, the upper bound is in the first column and the lower bound is in the right column
+pred.intervals %>% exp()*3160000
+```
+
+###(e) Use `linearHypothesis` function and `anova` function in R to test for the signifcance of the 3 polynomial terms of `Year`. Do the two tests have the same results?
+
+The test using `anova` and `linearHypothesis` return the same Wilks test statistic with the same p-value. THe results agree that we should reject the null hypothesis and conclude that at least 1 of the polynomial terms is significantly non-zero, fitting the data better than the model with no terms for Year-1961.
+```{r}
+#new model
+fit2.lm <- update(fit.lm, .~ . -Y.1 -Y.2 -Y.3)
+#test with ANOVA
+anova(fit.lm,fit2.lm,test="Wilks")
+#large test statistic, small p-value
+#Test with linearhypothesis
+#all interaction dummy variables are 0
+c<- cbind(rep(0, times=3), diag(3), matrix(0, nrow=3,ncol=51))
+newfit <- linearHypothesis(model = fit.lm, hypothesis.matrix = c)
+newfit
+#Wilks Statistic is the same
+```
+
+###(f) Use principal components analysis to reduce the dimensionality of the crimes into fewer dimensions. How many principal components should be chosen? Explain the meaning of the leading principal components. Notice that the data need to be centered separately for each state first.
+
+Based on the plot and cumulative proportion of variance explained, we could explain a large proportion of the variance with only 2 PCs, but there is not a clear break where we should choose the number of PCs. I would use 2 PCs, but we could justify using as many as 4 in my opinion.
+
+
+The first principal component is just a weighted average of the variables (overall crime rate). The second is a contrast between centered assault/rape and the rest of the variables (pretty much contrast between theft cases and violent cases, except for murder). The third PC is another contrast between violent crimes (assault/murder) and non-violent/theft crimes, except for rape (very similar to the 2nd PC).
+```{r}
+#center the response variables
+fbi.av <- fbi[,c(1,5:11)] %>% group_by(State) %>% summarise_all(mean) 
+head(fbi.av)
+fbij <- left_join(fbi, fbi.av, by=c('State'='State'))
+fbi.centered <- cbind(fbi[,1:4],fbi[,5:11]-fbij[,15:21],fbi[,12:14]) %>% data.frame()
+head(fbi.centered)
+
+#PC analysis
+fbi.centered.pc <- prcomp(fbi.centered[,5:11])
+fbi.centered.pc
+
+csums <- cumsum(fbi.centered.pc$sdev^2) / sum(fbi.centered.pc$sdev^2)
+csums
+plot(y=csums,x=seq(1:7), type='l')
+# I will use 3 pcs, although we could justify any between 2 and 4
+```
+
+###(h) Is there any distinctiveness of the states `California`, `Iowa`, `Illinois`, `District of Columbia` and `New York` in the first two principal components? (Transformed versions of sample means of each state need to be added back on the PC scores.) 
+
+We can see that Iowa has a much lower overall crime rate (pc1), but much higher rate of violent crime vs. nonviolent/theft crimes, while District of Columbia has a much higher overall crime rate and somewhat lower proportion of Assault/rape vs. theft crimes.The rest of the states are similar, although it is clear that they are different over time.
+```{r}
+#looking only at the first two PCs
+#Transform data by PCs and un-center the data
+fbi.pc1 <- (as.matrix(fbi.centered.pc$x) + as.matrix(fbij[,15:21])) %*%fbi.centered.pc$rotation[,1]
+fbi.pc2 <- (as.matrix(fbi.centered.pc$x) + as.matrix(fbij[,15:21])) %*%fbi.centered.pc$rotation[,2]
+fbi.tr <- data.frame(Abb=fbi$Abb, pc1=fbi.pc1, pc2=fbi.pc2)
+fbi.tr <- fbi.tr %>% filter(Abb%in% c("CA", "IA","IL","D.C.","NY"))
+ggplot(fbi.tr) + geom_point(aes(x=pc1,y=pc2, col=Abb))
+```
+
+
+##2. The United States Postal Service has had a long-term project to automating the recognition of handwritten digits for zip codes. The data on different numbers of specimens for each digit are available in Canvas. Each observation is in the form of a 256-dimensional vector of pixel intensities. These form a $16 \times 16$ image of pixel intensities for each letter. The objective is to distinguish one digit from another.
+
+###(a) We will see whether the digits are distinguishable. To do so, we will first prepare the dataset by rooting out those pixels (coordinates) which do not contribute to categorization. Do so, using univariate anova test for each coordinate. Choose the 100 most significant coordinates (in terms of the p-value for the above test).
+```{r}
+#pixels
+ziptrain <- read_delim("ziptrain.dat", delim=" ", col_names=F) %>% as.data.frame()
+#digits
+zipdigit <- read_delim('zipdigit.dat', delim=" ", col_names=F) %>% as.matrix
+#univariate anovas for each
+#use a loop
+i=0
+pvals <- matrix(nrow=256,ncol=2)
+repeat{
+  i=i+1
+  pix <- lm(c(ziptrain[,i])~as.factor(zipdigit[,1]))
+  pvals[i,] <- c(i,anova(pix)$`Pr(>F)`[1])
+  if(i==256){break}
+}
+#sort the pvalues, keep the top 100
+top100p <- pvals %>% data.frame %>% arrange(X2)
+top100p <- top100p[1:100,1]
+top100p %>% head()
+```
+
+###(b) We will now use principal components to reduce dimensionality of the original dataset. It would be preferred to remove the effect of the digit-specific means before performing the principal components analysis. Use the principal components and determine the number of components needed to explain at least 80% of the total variation in the data, at the 5% level of significance.
+
+Based on these results, we would need 16 principal components to describe 80% of the variation for 5% significance level, on the centered data.
+```{r}
+#center the data first
+#use only the best 100
+ziptrain.t <- ziptrain[,top100p]
+ziptrain.m <- ziptrain.t %>% apply(2,mean)
+ziptrain.c <- sweep(ziptrain.t, MARGIN=2,ziptrain.m)
+#PCs
+zip.pc <- prcomp(ziptrain.c)
+zip.pc %>% summary()
+cumsum(zip.pc$sdev^2) / sum(zip.pc$sdev^2)
+#around 16-20
+
+# Test for the PC proportions
+#want the largest # of PCs where we fail to reject at 5% significance
+#16 fails to reject, but 15 rejects
+#We want the first 16 PCs
+PCs.proportion.variation.enuff(zip.pc$sdev^2, 15, 0.8, nobs=nrow(ziptrain))
+PCs.proportion.variation.enuff(zip.pc$sdev^2, 16, 0.8, nobs=nrow(ziptrain))
+```
+    
+
+###(c) Use `ggplot` to display the leading components (using color or characters for each digit).
+
+The plot along the 2 leading components shows that 1 and 0 vary alot from the rest of the digits, as does 6, indicating that these digits are more distinct from the other digits.
+```{r}
+#transform by principal components
+ziptransf <- data.frame(zipdig=zipdigit[,1], pc1=as.matrix(ziptrain.t) %*% zip.pc$rotation[,1], pc2=as.matrix(ziptrain.t) %*% zip.pc$rotation[,2])
+#plot using ggplot
+#with characters, does not look very good
+ggplot(ziptransf)+ geom_text(aes(y=pc2,x=pc1, label=as.factor(zipdig)))
+#try with colors
+ggplot(ziptransf) + geom_point(aes(y=pc2,x=pc1, col=as.factor(zipdig)))
+```
+
+    

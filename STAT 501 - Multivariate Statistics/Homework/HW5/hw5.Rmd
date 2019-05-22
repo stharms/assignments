@@ -1,0 +1,197 @@
+---
+title: "Homework 5"
+author: "Steve Harms"
+date: "March 7, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(reshape2)
+library(car)
+library(classdata)
+```
+
+<br>
+
+##1.) 
+Verify the conclusions on the distribution of $\widehat{\beta}_{k}$ and $\mbox{Cov}(\widehat{\beta}_{k}, \widehat{\beta}_{i})$.
+
+From the notes, we have that $\hat{\beta}_k = (A'A)^{-1}A'X$. Note that because the error vector $\boldsymbol{\epsilon}$ is assumed MVN and $A$ is a linear transformation, that $\hat{\beta}$ is a linear combination of MVNs so it is also multivariate normal and thus $\hat{\beta_k}$ is normal for any $k$. We specify that $\epsilon$ is independent of $X$, so that the expected value is
+\begin{equation}
+E\lbrack\hat{\beta}_k\rbrack = E[(A'A)^{-1}A'X]\\
+= (A'A)^{-1}A'(A\beta + \epsilon)\\
+= (A'A)^{-1}A'A\beta + (A'A)^{-1}A'\epsilon)\\
+= \beta + (A'A)^{-1}A'\epsilon)\\
+= \beta + 0\\
+=\beta\\
+\end{equation}
+
+The variance of $\hat{\beta_k}$ is given by
+\begin{equation}
+E\lbrack\hat{\beta_k}\hat{\beta_k}'\rbrack = E[((A'A)^{-1}A'X_k)((A'A)^{-1}A'X_k)']$\\
+= (A'A)^{-1}A'E[X_kX_k']A(A'A)^{-1} \\
+= (A'A)^{-1}A'\sigma_{kk} A(A'A)^{-1} \\
+= \sigma_{kk}(A'A)^{-1}A'A(A'A)^{-1}] \\
+=\sigma_{kk}(A'A)^{-1}\\
+\end{equation}
+
+The covariance of $\hat{\beta_k}$ and $\hat{\beta_i}$ is given by
+\begin{equation}
+E\lbrack\hat{\beta_k}'\hat{\beta_i}\rbrack = E[((A'A)^{-1}A'X_k)((A'A)^{-1}A'X_i)'] \\
+= E[(A'A)^{-1}AE[X_kX_i']A(A'A)^{-1}] \\
+= (A'A)^{-1}A'\sigma_{ki} A(A'A)^{-1}\\
+= \sigma_{ki}(A'A)^{-1}A'A(A'A)^{-1}] \\
+=\sigma_{ki}(A'A)^{-1}\\
+\end{equation}
+
+##2.)
+The Olive Oils dataset `olive.dat` (provided in the folder `Data and code` in Canvas) consists of measurements of eight chemical components (columns 2-8) on 572 samples of olive oil. The samples come from three different regions of Italy. The regions are further partitioned into nine areas: areas 1–4 belong to region R1, areas 5 and 6 belong to region R2, and areas 7–9 belong to region R3. The first column of the file provides the indicator for the nine regions. Now, we study the whole data set. 
+  
+####**(a)** Provide appropriate graphical summaries for the dataset.Comment on the distinctiveness between the chemical composition of the olive oils in the three main regions, as well as individually between the sub-regions. Can you see interactions between regions and chemical components?
+
+Plots are provided below, one with all of the groups together and another with facets by region. All of the plots look very close to each other, and there are not many differences in the pattern across regions. Visually there is not much evidence for interaction (lines do not cross much). There is some slight evidence for interaction in the pattern for chemicals 4,5, and 6, where it appears the lines cross. However, we also know from the previous homework assignment that chemicals 4 and 5 also have the largest variance so it is still difficult to tell.
+```{r}
+olives <- read.delim('olive.dat', sep="")
+#melt and summarize the data
+summed <- olives %>% mutate(region = as.factor(ifelse(group.id < 5, 1, ifelse(group.id > 6, 3 , 2)))) %>%
+  melt(id=c('group.id','region')) %>% group_by(region,group.id,variable) %>% summarise( grmean = mean(value)) %>%
+  mutate(variable=as.numeric(str_sub(variable,-1L)))
+#plot
+#all
+summed %>% ggplot(aes(x= as.factor(variable), y=grmean)) +
+  geom_line(aes(group=as.factor(group.id), linetype=as.factor(group.id), color=region), size=1.3) +
+  labs(x="Chemical", y="Group Mean")
+#facet by region
+summed %>% ggplot(aes(x= as.factor(variable), y=grmean)) +
+  geom_line(aes(group=as.factor(group.id), color=as.factor(group.id)), size=1.3) +
+  labs(x="Chemical", y="Group Mean") + facet_wrap('region')
+```
+
+####**(b)** Perform a one-way multivariate analysis of variance to test for differences in mean chemical com- position among the three regions.
+
+In the test below, we can see that the Wilks test statistic is quite small, resulting in a p-value that is near 0. Thus we reject the null hypothesis of equal mean vectors across regions and have evidence that the mean chemical composition is different for at least one region.
+```{r}
+#need to specify regions
+olives <- olives %>% mutate(region = as.factor(ifelse(group.id < 5, 1, ifelse(group.id > 6, 3 , 2))), group.id=as.factor(group.id))
+#fit the model
+fitlm <- lm(as.matrix(olives[,2:9])~olives$region)
+manolive <- Manova(fitlm)
+summary(manolive)
+```
+
+####**(c)** Test for the interaction between regions and chemical components. What are the $C$ and $M$ matrices being used in this hypothesis?
+
+C and M matrices are given below. From the output summary, we have a p-value near 0 for the Wilks statistic. Thus we reject the null hypothesis of no interaction between chemical/region. We have evidence of interaction effects
+```{r}
+#specify M matrix
+M = rbind(c(1,-1,rep(0,times=6)),
+          c(0,1,-1,rep(0,times=5)),
+          c(0,0,1,-1, rep(0,times=4)),
+          c(rep(0,times=3),1,-1,rep(0,times=3)),
+          c(rep(0,times=4),1,-1, rep(0,times=2)),
+          c(rep(0,times=5),1,-1,0),
+          c(rep(0,times=6),1,-1))
+t(M)
+#C matrix
+C <- rbind(c(0,1,0),
+           c(0,1,-1))
+C
+
+#Hypothesis Test for Interactions
+fitint.cm <- linearHypothesis(model = fitlm, hypothesis.matrix = C, P=t(M))
+fitint.cm
+```
+
+####**(d)**  Test for the equivalence of means of chemical components among the 4 areas within region R1. What are the $C$ and $M$ matrices being used in this hypothesis?
+
+(Assuming I understand what this question is asking) To test for equivalent mean chemical compositions, we want to test whether $\tau_{ik}-\tau_{jk}=0$ for any i or j. There is no need for an M matrix because we are not testing contrasts between specific chemicals (traits). This is the same as testing the between group differences in MANOVA like in part (b) above, except now we are using the group.id variable instead of the regions. There are multiple ways of testing this, the easiest way being the simple MANOVA but we can also specify contrasts. Some choices for the C matrix are given below. **In all cases, we get the same test statistic and the p-value is extremely small (near 0) for the Wilks statistic of .066872, so that even with a multiple testing correction we still will reject the null hypothesis. We have evidence to support the difference in mean chemical concentration for at least one of the combinations of areas in Region 1.**
+
+```{r}
+#get r1 only
+olivesr1 <- olives %>% filter(region==1)
+#fit new model
+fitlmr <- lm(as.matrix(olivesr1[,2:9])~olivesr1$group.id)
+manova.grp <- Manova(fitlmr)
+summary(manova.grp)
+
+#Another way of doing it
+#both choices of C matrix give us the same test statistics (see end of the output)
+C.1 <- cbind(c(0,0,0),diag(3))
+C.2 <- rbind(c(0,1,0,0), c(0,1,-1,0), c(0,1,0,-1))
+C.1
+C.2
+linearHypothesis(model = fitlmr, hypothesis.matrix = C.1)
+linearHypothesis(model = fitlmr, hypothesis.matrix = C.1)
+```
+
+
+
+##3)
+####**(a)** Take the log transformation of the data first, and then take the difference between consecutive years (current year minus previous year). Why this transformation provides the change rate of the number of crimes?
+
+Taking the log is a way of converting it to percentage scale rather than absolute scale. We have taken the difference between a lagged variable, thus our new data is just the percent change from year to year.
+```{r}
+#filter the data
+fbif <- fbiwide %>% filter(State%in%c("California","Iowa","Illinois", "District of Columbia", "New York"))
+#log and lag
+fbif <- fbif %>% mutate_at(vars(4:12), funs(log(.))) %>% data.frame() %>% mutate_at(vars(4:12), funs(.-lag(.)))
+head(fbif)
+```
+
+####**(b)** Use the transformed data to compare the change rates of different crimes. Summarize `Year` to three groups: from 1961 to 1980, from 1981 to 2000, from 2001 to 2017. Call this variable as `decade`. Perform a two-way Manova for the interaction between states and decade.
+
+From the output summary, we see that the last Wilks test statistic (for the interaction between factors) is quite large, resulting in a p-value of .7616. Thus we fail to reject the null hypothesis. We do not have enough evidence to conclude that there is interaction between state and decade effects on the crime rate. However, we do have evidence for a difference in crime rates across decades.
+
+```{r}
+#add decade variable
+fbid <- fbif %>% mutate(decade = as.factor(ifelse(between(Year,1961,1980), 1 ,
+                                              ifelse(between(Year, 1981,2000), 2,
+                                                 3)))) %>% select(-Rape) %>% filter(complete.cases(.))
+#fit two-way Manova
+#Fail to reject null hypothesis for difference between states (p=.2697)
+#Reject null hypothesis for difference between decades (p~0)
+#Fail to reject null hypothesis for interaction between states and decades (Wilks: p=.7616)
+fittwo <- lm(as.matrix(fbid[,(5:11)]) ~ fbid$State * fbid$decade, data = fbid)
+fit.manova.two <- Manova(fittwo)
+summary(fit.manova.two)
+
+```
+
+####**(c)** Report and explain the sum of square matrices from question (b). Verify their sum is equal to the corrected total sum of squares matrix. 
+
+Each matrix is the portion of the total variation / covariance in the data (total SS) that is explained by adding that factor.
+We can see below that adding our 4 SS matrices from the model fit results in the same matrix that results from finding the total SS by definition.
+```{r}
+#SS matrices. The factors and interactions, then the error SS
+SSm <- fit.manova.two$SSP %>% lapply(as.matrix)
+SSm
+#Error SS
+fit.manova.two$SSPE
+
+#Do the SS/CP matrices add up to total SS?
+fmt <- manova(as.matrix(fbid[,(5:11)]) ~ fbid$State * fbid$decade, data = fbid)
+cov(fitted.values(fmt))+cov(fmt$residuals)
+cov(as.matrix(fbid[,(5:11)]))
+
+#Note that our groups are not balanced:
+fbid %>% filter(State=='Illinois') %>% nrow()
+fbid %>% filter(State=='New York') %>% nrow()
+```
+
+####**(d)** Use `Aggravated.assault - Burglary` and `Burglary - Larceny.theft`. Are there interaction effects between states and decades for the difference of the change rates among the three crimes? 
+
+From the output summary, the test statistic for interactions (last section) is quite large and the associated p-value is quite large (p=.488), so we fail to reject the null hypothesis. There is no evidence to support interactions between state and decade for the variable differences we tested.
+
+```{r}
+#Need M matrix to test differences
+M <- rbind(c(1,-1,rep(0,times=5)),
+           c(0,1,-1,rep(0,times=4)))
+t(M)
+#fit new model
+fitcon <- lm(as.matrix(fbid[,(5:11)])%*%t(M) ~ fbid$State * fbid$decade)
+fit.manova.con <- Manova(fitcon)
+summary(fit.manova.con)
+```
+

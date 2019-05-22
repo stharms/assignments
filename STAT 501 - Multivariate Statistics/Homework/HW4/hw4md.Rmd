@@ -1,0 +1,230 @@
+---
+title: "Homework 4"
+author: "Steve Harms"
+date: "February 27, 2019"
+output: html_document
+header-includes:
+   - \usepackage{amsmath}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(energy)
+library(ICSNP)
+library(reshape2)
+library(ellipse)
+```
+
+<br>
+
+##1.)
+Consider data from a multi-nomial distribution with $p$ categories. Let $X_{1}, \ldots, X_{n}$ be independent identically distributed (i.i.d.), where $X_{i} = (X_{i1}, \ldots, X_{ip})'$ and $X_{ij} = \mathbf{1}\{\mbox{the ith observation is from the jth category}\}$. 
+Namely, only the $j$th component of $X_{i}$ is 1 and all other components are 0 if this observation is from the $j$th category.
+The probability of an observation from each category is $\pi = (\pi_{1}, \ldots, \pi_{p})'$. Then $Z = \sum_{i = 1}^{n} X_{i}$ is multi-nomial distributed with number of trials being $n$, and success probability being $\pi$.
+This success probability is estimated by $\widehat{\pi} = Z / n = \sum_{i = 1}^{n} X_{i} / n$.
+
+  **(a)** Clearly, $\mbox{E}(X_{i}) = \pi$. Find the $\Sigma = \mbox{Cov}(X_{i})$.
+    
+  By construction of $X_i$, it is clear that each individual component is marginally distributed as Binomial($n$,$\pi_j$) because of the constraint that $\sum\pi_j=1$. Then the diagonal elements of $\Sigma = \mbox{Cov}(X_{i})$ are just the marginal variances of the individual components, which for marginally binomial variables is $\Sigma_{jj} = n\pi_j(1-\pi_j)$. To determine the covariance, note that for independent binomial variables, $(X_i + X_j) \sim Bin(n, \pi_i + \pi_j)$ thus $Var(X_i + X_j) = n(\pi_i+\pi_j)(1-\pi_i-\pi_j)$. Note also that
+  \begin{math}
+  $Var(X_i + X_j) = Cov(X_i+X_j, X_i+X_j) \\ = 2Cov(X_i,X_j) + Var(X_i) + Var(X_j) \\= 2Cov(X_i,X_j) + n\pi_i(1-\pi_i) + n\pi_j(1-\pi_j)$ \end{math}
+Then we can solve for the covariance:
+  \begin{math}
+$Var(X_i + X_j) = n(\pi_i+\pi_j)(1-\pi_i-\pi_j) = 2Cov(X_i,X_j) + n\pi_i(1-\pi_i) + n\pi_j(1-\pi_j)\\$
+$n\pi_i + n\pi_j - n\pi_i^2 - n\pi_j^2 -2n\pi_i\pi_j = 2Cov(X_i,X_j) + n\pi_i(1-\pi_i) + n\pi_j(1-\pi_j)\\$
+$n\pi_i(1-\pi_i) + n\pi_j(1-\pi_j) -2n\pi_i\pi_j = 2Cov(X_i,X_j) + n\pi_i(1-\pi_i) + n\pi_j(1-\pi_j)\\$
+$-2n\pi_i\pi_j = 2Cov(X_i,X_j)\\$
+$-n\pi_i\pi_j = Cov(X_i,X_j)\\$
+\end{math}
+Thus the full covariance matrix $\Sigma$ has $\Sigma_{jj} = n\pi_j(1-\pi_j)$ and  $\Sigma_{ij} = -n\pi_i\pi_j$ for $i\neq j$.
+\\
+\\
+\\
+\\
+\\
+
+  **(b)** Assume the sample size $n$ is large. To test for the hypothesis that $\pi$ is equal to a specific vector, say $\pi_{j} = 1 / p$ for all $1 \leq j \leq p$, can we use the Hotelling's $T^{2}$ statistic on the data $\{X_{i}\}_{i = 1}^{n}$? If not, what statistic we should construct?
+  
+  One of the assumptions for Hotelling's $T^2$ is that the data is normally distributed. Although we showed in previous homework and in class that this assumption can be relaxed somewhat. In the univariate case, we often use a t-test to compare binomial proportions. Since this is just an extension of the univariate case, we **can** use Hotelling's $T^2$ as the test statistic, provided *n* is large enough to ensure the asymptotic result holds. (There are other options as well, including chi-square tests, etc.)
+  
+  **(c)** What is the limiting distribution of the test statistic you used for question (b)?
+  
+  $X$ is not normal, so for large n, $T^2 \xrightarrow{} \chi^2_p$
+  
+  **d)** We want to construct simultaneous confidence intervals for $\pi_{j}$ for $j = 1, \ldots, p$ and possibly some of their contrasts. List two ways of constructing such simultaneous confidence intervals.
+
+  * Assuming we still have large enough sample size, we can still use the limiting distribution of the $T^2$ statistic to construct a simultaneous confidence interval, using the result on slide 294. The $100(1-\alpha)$\% confidence interval for vector $\mathbf{\pi}$ is then $\bar{X_j} \pm \sqrt{\chi^2_p(\alpha)}\sqrt{\frac{S}{n}}$ , where $\bar{X}$ has elements $\bar{x_j}$ corresponding to the number of successes for category $j$ divided by the number of trials $n$, and $S$ is the sample variance corresponding to the covariance matrix defined in (a).
+  
+  * Alternatively, if n is large enough we can just use individual t-intervals with a correction. The $100(1-\alpha)$\% confidence interval for element $\pi_j$ is then $\bar{x_j} \pm t_{n-1}(\frac{\alpha}{2p})\sqrt{\frac{s_{jj}}{n}}$ , where $\bar{x_j}$ is the number of successes for category $j$ divided by the number of trials $n$, and $s_{jj}$ is the sample variance corresponding to the covariance matrix defined in (a). We have adjusted the confidence level with the Bonferroni corrrection by dividing by $p$, which is the number of intervals we are creating.
+  
+  *For either of the above methods, we can create an interval for a set of linear contrasts by replacing $\bar{X}$ with $a'\bar{X}$ and $S$ with $a'Sa$ for the appropriate matrix $a$.
+  
+**(e)** Which way in question (d) you prefer, why? 
+
+  In general, the $T^2$ intervals are more conservative because we use the chi-squared distribution and also take the whole sample covariance matrix into account. The Bonferroni intervals use only the diagonal entries of S, so they are narrower (smaller ellipsoid). This may not hold for all possible values of $p$ and $n$, but is typical. I thus prefer the first method (using Hotelling $T^2$ result) because it takes into account the covariance instead of the basic correction in Bonferroni's method.
+    
+##2.)
+For the `Effluent Study` in our lecture `InferenceForMeans-Repeated`, the conclusion from the Hotelling's $T^{2}$ test doesn't agree with the result from the simultaneous confidence intervals for the difference of the means of the two variables. Possible reasons include outliers in the data, sample size is small and the data is not normal distributed.
+
+**a)** Test for Multivariate normality assumption on the data
+
+I use the energy test with parametric bootstrap of size 10,000:
+```{r}
+#read in data
+effluent <- read.table(file = "effluent.dat", header=F, col.names=c("sample", "bod1", "ss1", "bod2", "ss2"))
+
+#conduct energy test with 10000 bootstrap replicates
+set.seed(112358)
+mvnorm.etest(effluent[,-1], R=10000)
+```
+
+From the energy test, we get a p-value of .0837. This is quite large, so we fail to reject the null hypothesis and conclude that the data are multivariate normal.
+
+**b)** Try a more appropriate test for the hypothesis $\mu_{state} = \mu_{private}$.
+
+I try the Hotelling $T^2$ test after deleting the outlier. First, I checked to see if the multivariate normality result holds as in (a) after we remove the extreme point, which it does. Then I conduct hypothesis test (I use the HotellingsT2 function instead of the provided code, but it provides the same result).
+```{r}
+#read in data
+effluent <- read.table(file = "effluent.dat", header=F, col.names=c("sample", "bod1", "ss1", "bod2", "ss2"))
+
+#conduct energy test with 10000 bootstrap replicates
+set.seed(112358)
+mvnorm.etest(effluent[,-1], R=10000)
+#p-value is large, fail to reject H0 of multivariate normality
+
+#Hypothesis test
+#try deleting the outlier first
+effluent_r <- effluent[-8,]
+#test for MVN
+mvnorm.etest(effluent_r[,-1], R=10000)
+
+xbar<-apply(effluent_r[,-1],2,mean)
+xvar<-var(effluent_r[ ,-1])
+#  Apply the contrasts
+Cstar <-matrix( c(1, 0, -1, 0, 0, 1, 0, -1), 2, 4, byrow=T)
+# Conduct Hotelling Test
+HotellingsT2( as.matrix(effluent_r[, 2:5]) %*% t(Cstar), mu = c(0,0))
+```
+
+From the test, we see that removing the outlier does not change the result. The p-value is still <.05, thus we still reject the null hypothesis of no difference in measurements between labs (i.e., the difference is not 0,0). So removing the outlier did not get our results to agree. It is likely that our sample size of n=11 is too small, so that our test is not very powerful and may not be able to accurately detect the difference (or possibly detect non-normality in the energy test).
+
+##3.) 
+The samples come from three different regions of Italy. The regions are further partitioned into nine areas: areas 1–4 belong to region R1, areas 5 and 6 belong to region R2, and areas 7–9 belong to region R3. The first column of the file provides the indicator for the nine regions. We will now focus on Region R2. Answer the following questions:
+
+**(a)** Calculate the covariance matrix for the chemical composition in each of the two sub-regions. Display the covariance matrices for the two sub-regions side-by-side, and comment on possible differences. You can use the heatmap to visualize the two matrices. Be sure to use the same scale for the color.
+```{r}
+#read in data
+olive <- read.table("olive.dat", header=T)
+#focus on region 2
+olive <- olive %>% filter(group.id %in% c(5,6))
+#####
+##a
+#get covariance matrices
+s.5 <- olive %>% filter(group.id ==5) %>% select(-group.id) %>% var
+s.6 <- olive %>% filter(group.id ==6) %>% select(-group.id) %>% var
+s.5
+s.6
+#and also correlation matrices
+s.5c <- olive %>% filter(group.id ==5) %>% select(-group.id) %>% cor
+s.6c <- olive %>% filter(group.id ==6) %>% select(-group.id) %>% cor
+
+#reformat the data for ggplot
+s.5.m <- s.5 %>% melt %>% mutate(id = 5)
+s.6.m <- s.6 %>% melt %>% mutate(id = 6)
+covdf <- rbind(s.5.m, s.6.m)
+s.5.cm <- s.5c %>% melt %>% mutate(id = 5)
+s.6.cm <- s.6c %>% melt %>% mutate(id = 6)
+covdfc <- rbind(s.5.cm, s.6.cm)
+
+#limits for the color scale
+mx <- max(s.5,s.6); mn <- min(s.5,s.6); mid <- median(c(s.5,s.6))
+mxc <- max(s.5c,s.6c); mnc <- min(s.5c,s.6c); midc <- median(c(s.5c,s.6c))
+
+#covariance matrix visualized
+ggplot(data=covdf, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() + scale_fill_gradient2(limits=c(mn, mx), midpoint=mid) + 
+  facet_wrap(~as.factor(id)) + ggtitle("Covariance Matrices by Region") +
+  scale_y_discrete(limits = rev(levels(covdf$Var2)))
+#correlation matrices instead
+ggplot(data=covdfc, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile() + facet_wrap(~as.factor(id)) +
+  scale_fill_gradient2(limits=c(mnc, mxc), midpoint=midc) + ggtitle("Correlation Matrices by Region") +
+  scale_y_discrete(limits = rev(levels(covdfc$Var2)))
+```
+  
+The covariance matrices do not tell us much. It is clear that we have large covariance between chemicals 4 and 5, but those two also have large individual variances that may distort the covariance. We also see large variance for chemical 1 (lower left). We can see some large covariance between Chemicals 1 and 4 and 5 as well. While it is not visible in the region 5 heatmap, we can see some additional covariance with chemical 7 and 4 and 5 in the region 6 covariance heatmap. These patterns are much more visible if we look at the correlation matrix instead. Again we see correlation between chemicals 4 and 5 with 1,7 and possibly 8, with some small correlation between 3 and 6.
+
+  
+**(b)** Test for equality of the mean chemical compositions between the two groups. Specifically, report the Hotelling's $T^{2}$ statistics and its p-value. Are you comfortable to use Hotellings’ $T^{2}$ test without testing for the multivariate normality of the data and the equivalence of the two covariance matrices?
+```{r}
+#split into subregions
+olive.x <- olive %>% filter(group.id ==5) %>% select(-group.id)
+olive.y <- olive %>% filter(group.id ==6) %>% select(-group.id)
+#test for normality first
+set.seed(112358)
+mvnorm.etest(olive.x, R=10000)
+mvnorm.etest(olive.y, R=10000)
+#Get estimated covariance matrices
+Sx <- var(olive.x[,5:6])
+Sy <- var(olive.y[,5:6])
+#are the covariance matrices equal?
+Sx; Sy
+#test for equality of means
+HotellingsT2(X=olive.x, Y=olive.y)
+```
+
+We can use the energy test to check for multivariate normality of the data. From the test, we can see that the test rejects the null hypothesis and thus we would conclude that the data are not multivariate normal for either region. However, sample size is large enough that we *might* be able to ignore that. The covariance matrices are obviously not perfectly equal, however if we use the rule of thumb in the lecture notes about individual variances being 4x the element in the other covariance matrix, we see that they are not too different. We can proceed under the assumption that they are the same.
+
+I used the built in Hotelling Test function to conduct the test. The result is a test statistic of 112.41 with a corresponding p-value that is essentially 0, indicating that we should reject the null hypothesis and conclude that the mean vectors of chemical compositions are not equal across regions.
+
+**(c)** Restrict attention to the coordinates for the fifth and sixth chemicals. Provide individual pairwise t-tests for the differences in the composition of the two chemicals among the two groups, using Bonferroni method to adjust the 5% level of significance. Plot their Bonferroni adjusted confidence intervals, and on the same plot, draw the 95% confidence ellipses for the two groups.
+
+See the plot below for visualization. We can see that neither the individual or simultaneous confidence interval contains (0,0), thus we would conclude at $\alpha=.05$ significance level that the mean vectors are not equal across regions, agreeing with the result in (b). The t-tests provide the same result. Note that we use the Bonferroni correction, which just means we divide the significance level by p=2.
+```{r}
+#chemical 5
+xbarf<- mean(olive.x[,5])-mean(olive.y[,5])
+spoolf <- ((length(olive.x[,5])-1)*var(olive.x[,5]) + (length(olive.y[,5])-1)*var(olive.y[,5]))/
+  (length(olive.x[,5])+length(olive.y[,5]) - 2)
+sef <- sqrt(spoolf)*sqrt(1/length(olive.x[,5]) + 1/length(olive.y[,5]))
+dff <- length(olive.x[,5]) + length(olive.y[,5]) - 2
+
+#chemical 6
+xbars<- mean(olive.x[,6])-mean(olive.y[,6])
+spools <- ((length(olive.x[,6])-1)*var(olive.x[,6]) + (length(olive.y[,6])-1)*var(olive.y[,6]))/
+  (length(olive.x[,6])+length(olive.y[,6]) - 2)
+ses <- sqrt(spools)*sqrt(1/length(olive.x[,6]) + 1/length(olive.y[,6]))
+dfs <- length(olive.x[,6]) + length(olive.y[,6]) - 2
+
+
+#t-tests with Bonferroni correction
+t.test(x=olive.x[,5],y=olive.y[,5], alternative='two.sided', mu=0, conf.level = (1-.05/2), var.equal=T)
+t.test(x=olive.x[,6],y=olive.y[,6], alternative='two.sided', mu=0, conf.level = (1-.05/2), var.equal=T)
+
+#Individual CIs with Bonferroni correction:
+lbf <- xbarf - qt(1-.05/(2*2), dff) * sef
+ubf <- xbarf + qt(1-.05/(2*2), dff) * sef
+lbf<- round(lbf,3); ubf <- round(ubf,3)
+lbs <- xbars - qt(1-.05/(2*2), dfs) * ses
+ubs <- xbars + qt(1-.05/(2*2), dfs) * ses
+lbs<- round(lbs,3); ubs <- round(ubs,3)
+paste("chemical 5: (", lbf, " , ", ubf, ")", sep="")
+paste("chemical 6: (", lbs, " , ", ubs, ")", sep="")
+
+
+#get pooled covariance matrix
+lx <- nrow(olive.x); ly<-nrow(olive.y)
+Spooled <- (lx-1)/(lx+ly-2)*Sx + (ly-1)/(lx+ly-2)*Sy
+#get covariance matrix for differences
+Sdiff <- (1/lx + 1/ly)*Spooled
+#plot the ellipse and the bonferroni confidence regions
+plot(ellipse(Sdiff, centre=c(xbarf,xbars)), type="l", lwd=2, ylim=c(0,8), xlim=c(-250,-190), 
+     main="Confidence Regions for Difference in Means for Chemicals 5 and 6") + 
+  rect(lbf,lbs,ubf,ubs, lty=3, lwd=2) + points(xbarf,xbars, cex=2, pch=19)
+  legend(-250, 7.8, legend=c("Simultaneous", "Individual"), lty=c(1,2), cex=0.8)
+```
+
+
+
+  
+  

@@ -1,0 +1,206 @@
+---
+title: "Homework 3"
+author: "Steve Harms"
+date: "February 17, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. Let $X_{1}, \ldots, X_{n}$ be independent identically distributed (i.i.d.) $p$-dimensional random vectors from $N(\mu, \Sigma)$. 
+Let $C = (c_{i_1i_2})$ be an $n \times n$ orthogonal matrix. 
+Let 
+\[Y = \begin{pmatrix} Y_{1}^{\prime} \\ \vdots \\ Y_{n}^{\prime} \end{pmatrix} = C \begin{pmatrix} X_{1}^{\prime} \\ \vdots \\ X_{n}^{\prime} \end{pmatrix}.\]
+
+
+  **(a)** $Y_{i_1} \sim N(v_{i_1}, \Sigma)$ for $v_{i_1} = \sum_{i_2 = 1}^{n} c_{i_1i_2} \mu_{i_2}$;
+    
+  Note that by our specification of C, we have that $Y_{i_1}$ is a linear combination of i.i.d. MVN vectors, and thus $Y_{i_1}$ is MVN as well. Next, we have that $Y_{i_1} = C_{i_1,\cdot}\cdot\begin{pmatrix} X_{1}^{\prime} \\ \vdots \\ X_{n}^{\prime} \end{pmatrix}$, thus the mean of $Y_{i_1}$ is just the inner product of the elements of the $i_1$th row of C and $\begin{pmatrix} X_{1}^{\prime} \\ \vdots \\ X_{n}^{\prime} \end{pmatrix}$, which is just $v_{i_1} = \sum_{i_2 = 1}^{n} c_{i_1i_2} \mu_{i_2}$. For the covariance matrix, we have that $Var(Y_{i_1}) = Var(C_{i_1,\cdot}]\cdot\begin{pmatrix} X_{1}^{\prime} \\ \vdots \\ X_{n}^{\prime} \end{pmatrix}) = C_{i_1,\cdot}'C_{i_1,\cdot}\cdot Var(X) = Var(X) = \Sigma$ because the $X_i$s are i.i.d. and $C$ is orthogonal and thus cancels to the identity matrix.
+    \newline
+    
+  **(b)** $Y_{i_1}$ and $Y_{i_2}$ are independent for $i_1 \neq i_2$;
+    
+  Let $Y_{i_1} = C_{i_1,\cdot}*X$ and $Y_{i_2}= C_{i_2,\cdot}*X$, for $i_1 \neq i_2$. Note that both $Y_{i_1}$ and $Y_{i_2}$ are multivariate normal with the same covariance matrix $\Sigma$ by the result in (a). Furthermore, we can combine $Y_{i_1}$ and $Y_{i_2}$ into a partitioned vector $Y_{i} = \begin{pmatrix} Y_{i_1} \\ \cdots \\ Y_{i_2} \end{pmatrix} = \begin{pmatrix} C_{i_1} \\ \cdots \\ C_{i_2} \end{pmatrix} \cdot X' = C_i \cdot X'$ that is also multivariate normal. Then the covariance of this new partitioned vector is $Var(Y_i) = C_i \Sigma C_i'$. By the orthogonality of $C$ and our partitioning of $Y_i$, we have that $Cov(Y_{i_1},Y_{i_2}) = \sum_{j=1}^{n}C_{i_1,j}C_{j,i_2}X' = 0$, because orthogonality implies that inner products of the columns of $C$ are 0 for $i_1 \neq i_2$. Because the covariance is $0$, $Y_{i_1}$ and $Y_{i_2}$ are independent.
+    
+    
+  **(c)** $\sum_{i = 1}^{n} Y_{i} Y_{i}^{\prime} = \sum_{i = 1}^{n} X_{i} X_{i}^{\prime}$.
+    
+  Again, this result follows from the orthogonality of $C$. We have
+  \[\sum_{i = 1}^{n} Y_{i} Y_{i}^{\prime} = \sum_{i = 1}^{n} C\cdot X_{i} (C\cdot X_{i})^{\prime} = \sum_{i = 1}^{n} CC^{\prime}\cdot X_{i}\cdot X_{i}^{\prime} = \sum_{i = 1}^{n}X_{i}\cdot X_{i}^{\prime}.\]
+
+**[For all of the above results, we could also look at Result 4.8 in the textbook]**
+
+**2.** Let $X_{1}, \ldots, X_{n}$ be i.i.d. **univariate** random variables from $N(\mu, \sigma^{2})$.
+
+   **(a)** Provide the conditional distribution of $X_{1}, \ldots, X_{n - 1}$ given $\bar{X}$
+    
+  Note that because $\bar{X}$ is a linear combination of i.i.d. normal r.v.s, it is also normal. We know by independence of $X_i$s that $Cov(X_i, \bar{X}) = \frac{1}{n}Var(X_i) = \frac{\sigma^2}{n}$. Then we can create a partitioned random vector $(X_{1}, \ldots, X_{n - 1} \vdots \bar{X})'$ that has mean vector $\mu$ and a covariance matrix with the upper (n-1)x(n-1) block being $\sigma^2 \cdot I$ and the rest of the covariance matrix (row n and column n) having elements all equal to $Cov(X_i,\bar{X}) = Var(\bar{X}) = \sigma^2/n$. Then the conditional distribution, using slide 141 from the lecture notes, is $\boldsymbol{X}|\bar{X} \sim N(\mu_{X|\bar{X}},\Sigma_{X|\bar{X}})$ where
+  $\mu_{X|\bar{X}} = \boldsymbol{\mu} + (\sigma^2/n)(\sigma^2/n)^{-1}(\bar{X}-\mu) = \boldsymbol{\mu} + (\bar{X}-\mu) = \boxed{\bar{X}}$ and $\Sigma_{X|\bar{X}} = \sigma^2\cdot I_{n-1} - (\sigma^2/n)\cdot 1_{n-1} \cdot (\sigma^2/n)^{-1} \cdot (\sigma^2/n)\cdot 1_{n-1}' = \boxed{\sigma^2\cdot I_{n-1} - (\sigma^2/n)\cdot 1_{n-1}1_{n-1}'}$.
+    
+  **(b)** Write a function in R which will generate a random vector $X = (X_{1}, \ldots, X_{n - 1}, X_{n})$ given $\bar{X}$. (Note that $X_{n} = n \bar{X} - \sum_{i = 1}^{n - 1} X_{i}$.)
+    
+```{r}
+library(MASS)
+conditionalnorm <- function(n, xbar, sigmasq, method="cholesky"){
+  #generate mean vector
+  muv <- rep(xbar, times = n-1)
+  #generate covariance matrix
+  sigmav <- sigmasq*diag(n-1) - sigmasq/n*matrix(1,nrow=n-1,ncol=n-1)
+  #get cholesky decomposition of the covariance matrix
+  C<- chol(sigmav)
+  #use cholesky to get samples from MVN conditional distribution
+  rs <- rnorm(n-1)
+  newrs <- muv + t(C)%*%rs
+  #we could also just use mvrnorm() from MASS library which uses eigendecomposition
+  if(method=="eigen"){
+  newrs <- mvrnorm(1,mu=muv,Sigma=sigmav)
+  }
+  #attach Xn to X1,...,Xn-1
+  newrs <- c(newrs, n*xbar-sum(newrs))
+  return(newrs)
+}
+
+test <- conditionalnorm(n=10,xbar=10,sigmasq=3)
+test
+var(test)
+```
+    
+    
+**(c)** Suppose we have a $16 \times 16$ matrix $A$ which is averaged in each of the $4 \times 4$ non-overlapping blocks, resulting a $4 \times 4$ matrix $B$. Based on the result from (b), write a function to predict the original matrix $A$. Try your function on a setting of specific $B$ and $\sigma^{2}$.
+    I use the matrix "b" to test below, with $\sigma^2 = 2$
+```{r, warning=F, message=F}
+library(tidyverse); library(plyr)
+#function
+recovermat <- function(B,sigmasq,method="cholesky"){
+  #generate mvn for each element in B
+  b <- c(B)
+  alist <- alply(b, .margins=1,.fun=conditionalnorm, n=4, sigmasq=sigmasq, method=method) %>% 
+    llply(.fun=matrix, nrow=2,ncol=2)
+  #reassmble
+  outmat <- rbind(cbind(alist[[1]],alist[[3]]),cbind(alist[[2]],alist[[4]]))
+  return(outmat)
+}
+
+b <- matrix(c(3,8,35,19),nrow=2,ncol=2)
+b
+#using cholesky factorization
+recovermat(b,sigmasq=2,method="cholesky")
+#using mvnorm()
+recovermat(b,sigmasq=2, method="eigen")
+```
+
+**It looks like the function does a decent job of simulating a possible matrix A.**
+    
+    
+    
+**3.**
+
+  **(a)** Use `QQplot.normal` function in the code and `ggplot` to make quantile plots for each of the four variables. Use `facet` option to put them in one plot.
+
+```{r}
+# Normal Q-Q plot
+library(ggplot2)
+X = read.table("board.stiffness.dat", head = FALSE)
+
+QQplot.normal = function(x){
+  # x is an observed vector of a variable
+  x.sort = sort(x)
+  n = length(x)
+  p = ( c(1 : n) - 0.5 ) / n
+  q = qnorm(p)
+  res = data.frame(cbind(x.sort, q))
+  names(res) = c("sample.quantile", "normal.quantile")
+  return(res)
+}
+
+QQs <- apply(X[,-1],2,FUN=QQplot.normal) %>% as.data.frame()
+QQs <- data.frame(sample.quantile = gather(QQs[,c(1,3,5,7)])[,2], normal.quantile=gather(QQs[,c(2,4,6,8)])[,2],
+                  Sample = as.factor(rep(1:4,each=30)))
+ggplot(data = QQs) + geom_point(aes(x=normal.quantile, y=sample.quantile)) + facet_wrap(.~Sample)
+```
+
+**The QQplots look similar for each variable. All look to be approximately normal. Variable 2 (and possibly 4) look slightly flatter in the middle, but overall each variable looks approximately normal. Variable 1 is curved for the last few observations as well, indicating possible outliers.**
+
+  **(b)** Write a function to conduct Chi-square quantile plot. Implement this function on this dataset.
+    
+```{r}
+chisqplot <- function(x){
+  # x is an observed vector of a variable
+  #get sample statistics
+  xbar <- apply(x,2,mean); s <- cov(x)
+  #get squared distances from x
+  dis <- mahalanobis(x, center=xbar, cov=s)
+  #sort
+  di.sort = sort(dis)
+  #get chi-squared quantiles
+  n = nrow(x)
+  p = ( c(1 : n) - 0.5 ) / n
+  q = qchisq(p,df=ncol(x))
+  #combine and output
+  res = data.frame(cbind(di.sort, q))
+  names(res) = c("sample.quantile", "chisq.quantile")
+  return(res)
+}
+
+chisqs <- chisqplot(X[,-1])
+ggplot(data=chisqs) + geom_point(aes(x=chisq.quantile,y=sample.quantile)) + ggtitle("Chi-Squared Plot for Board Stiffness Data (p=4)")
+```
+    
+  **Visually, the plot does not appear to be a straight line in the tail (i.e., we may have outliers). However, ethe smaller quantiles (observations 1-25) do appear to be approximately on a line, indicating that the observations may come from a multivariate normal distribution.**
+  
+  **(c)** Based on the fucntion `testnormality` in the code, conduct random projection based shapiro-wilks test for multivariate data.
+    
+```{r}
+set.seed(11235)
+testnormality <- function(X, numproj = 100000)
+{
+  p = ncol(X)
+  n = nrow(X)
+  x <- matrix(rnorm(numproj * p), nrow = p)
+  y <- matrix(sqrt(apply(x^2, 2, sum)), nrow = p, ncol = numproj, by = T)
+  
+  z <- x / y
+  
+  tempdat <- as.matrix(X) %*% z  # this gives rise to a p x numproj matrix
+  # called tempdat here
+  
+  # perform Shapiro-Wilks' test and calculate individual p-values on each of
+  # the numproj observation sets.
+  
+  pvals <- as.numeric(matrix(unlist(apply(tempdat, 2, shapiro.test)),
+                             ncol=4, by = T)[,2])
+  return(min(pvals)) #returns the smallest p-value among all projections
+}
+
+testnormality(X[,-1])
+```
+    
+  
+  **(d)** Use parametric bootstrap to determine the reject region of the test.
+    **We can us a small loop to generate 1000 bootstrap replicates and then get the p-value for them**
+```{r}
+boots <- c()
+i=0
+bootsize = 1000
+repeat{
+  i=i+1
+  boots[i] <- testnormality(X[,-1], numproj=10000)
+  if(i==bootsize){break}
+}
+```
+
+**Then we can determine the rejection region. For a size $\alpha=.05$ test, we can use the 5th percentile of the bootstrap p-value empirical distribution**
+```{r}
+boots %>% quantile(probs=.05)
+```
+
+**Thus we reject the null hypothesis for any p-value less than $7.276892 x 10^{-6}$.**
+**Should we reject the null hypothesis for this data?**
+
+```{r}
+as.numeric(matrix(unlist(apply(X[,-1], 2, shapiro.test)),ncol=4, by = T)[,2])
+```
+
+**From the shapiro-wilk test on the actual data, we can see that the p-values are much larger than the p-value for significance determined via parametric bootstrap. Thus we fail to reject the null hypothesis for this data, and conclude that the board stiffness data is from a normal distribution. This aligns with our observations in the QQ-plot and chi-square plots.**
