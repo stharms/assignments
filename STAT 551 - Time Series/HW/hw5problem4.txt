@@ -1,0 +1,36 @@
+> library(itsmr)
+> deaths<- itsmr::deaths
+> 
+> ts.plot(deaths)
+> 
+> # difference once at lag 12
+> deaths12<-diff(deaths,lag=12)
+> ts.plot(deaths12)
+> 
+> # difference once at lag 1
+> deaths1<-diff(deaths12,lag=1)
+> ts.plot(deaths1)
+> 
+> # get sample acvf
+> acf(deaths1,type="covariance")
+> values<-acf(deaths1,type="covariance", lag.max=20)
+> 
+> #acvf values
+> values
+
+Autocovariances of series ‘deaths1’, by lag
+
+     0      1      2      3      4      5      6      7      8      9     10     11     12     13     14     15     16 
+152670 -54327 -15072  14585 -17178   6340  17421 -31164  -1088  15277 -12435  29802 -50867  13768  17758  -6200  -9656 
+    17     18     19     20 
+ 27981 -29456   3693   7569 
+> 
+> #sample means
+> mean(deaths);
+[1] 8787.736
+> 
+> mean(deaths12);
+[1] -171
+> 
+> mean(deaths1);
+[1] 28.83051

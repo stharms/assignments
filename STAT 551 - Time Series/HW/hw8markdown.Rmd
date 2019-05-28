@@ -1,0 +1,36 @@
+---
+title: "HW8markdown"
+author: "Steve Harms"
+date: "November 26, 2018"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#a function for the (negative) of the reduced log-likelihood
+rllik <- function(x){
+  -(log(.5*(1/(1+x^2)+ x^2/((1+x^2)^2*(1+x^2-(x^2/(1+x^2)))))) + .5*(log(1+x^2+x^4)))
+} 
+```
+```{r, eval = FALSE}
+#a plot of the reduced log-likelihood
+thetas <- seq(0,5, length=1000)
+lliks <- rllik(thetas)
+plot(lliks~thetas, type="l",  xlab=expression(theta) , ylab="reduced log-likelihood")
+```
+
+```{r}
+#minimizing the negative log-likelihood for theta
+optim(par=1, fn=rllik, method="Brent", lower=0, upper=10)$par
+```
+```{r}
+#a function to get sigma^2 estimate
+sig2 <- function(x){
+  .5*(1/(1+x^2)+ x^2/((1+x^2)^2*(1+x^2-(x^2/(1+x^2)))))
+}
+sig2(1)
+```
+

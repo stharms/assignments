@@ -1,0 +1,115 @@
+---
+title: "Take-Home Final Exam"
+author: "Steve Harms"
+date: "November 29, 2018"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+
+```
+```{r}
+library(itsmr)
+#read in the data
+mink <- ts(read.table("apph.tsm"))
+#plot the original time series
+ts.plot(mink)
+#take log of the original series
+minkl <- Resid(mink,M=c("log"))
+#plot the ACVF, ACF and PACF
+acf(minkl, type="covariance", main = "ACVF")
+```
+
+*I took the logarithm of the original data, just like we did with the lynx data in class. This seems reasonable, as the trappings will depend on population size, thus it may be better to change the scale. The un-transformed time series looks to have a seasonal component based on the ACF, and the PACF indicates we may not need more than AR(1).*
+```{r}
+#Plot the periodogram to examine the spectral density
+periodogram(minkl) + abline(v=2*pi/9)+ abline(v=2*pi/23)
+```
+
+*The periodogram looks we have spikes at 2$\pi$/9 and 2$\pi$/23, indicating that periods of 9 and 23 might be our seasonal periods to investigate.*
+```{r}
+#take seasonal differences with d=9
+mink1 <- diff(minkl,lag=9)
+#plot the new residuals of the time series
+ts.plot(mink1)
+```
+
+*The new plot looks to have a clear downward trend, I just use a linear trend.*
+```{r}
+#get residuals from a model with log transformation, d=9 differencing, and linear trend
+mink1t <- Resid(mink, M=c("log","diff",9,"trend",1))
+#ACF and PACF of our new residuals
+plota(mink1t, h=20)
+#Periodogram of the new residuals
+periodogram(mink1t) + abline(v=2*pi/14)
+```
+
+*After taking seasonal difference operator d=9, the periodogram still indicates a spike at 2$\pi$/14, i.e., period = 14. This matches what we had above (9+14=23, the other spike in the original periodogram). Now we are met with a problem: Do we take differences again, this time with d=14, or do we move on?. The ACF and PACF look somewhat reasonable, it appears an AR(1) model might do quite well. However, the p-value for the McLeod-Li Statistic is small, indicating that we do not have Gaussian white noise in our residuals:*
+```{r}
+#test the residuals for white noise / stationarity
+test(Resid(mink, M=c("log","diff",9,"trend",1)))
+```
+
+*The new PACF indicates we may not need many AR terms in our final model after differencing. The ACF and PACF look reasonable, so it's time to look at possible ARMA models for the residuals. I am going to resist using another difference operator with d=14 to avoid overfitting and adding more moving average error to the model, although we may run into trouble later. Here are some options for ARMA models:*
+
+```{r}
+#estimate some models
+arma11 <- arma(mink1t, p=1, q=1)
+arma10 <- arma(mink1t, p=1, q=0)
+arma01<- arma(mink1t, p=0, q=1)
+arma00 <- arma(mink1t, p=0, q=0)
+
+arma11$aicc; arma10$aicc; arma01$aicc; arma00$aicc
+
+```
+
+*The best model is the ARMA(1,0) model based on AICC, however all of the models considered above are very close and thus are competitive. Using any of them to forecast leads to very similar predicitions. The forecast is largely determined by the seasonal and trend structure, not the small scale MA and AR terms.*
+
+**Estimates and Confidence Intervals**
+```{r}
+#we can use autofit() to have ITSM pick the best model for us based on AICC
+#turns out to be ARMA(1,0)
+bestmodel <- autofit(mink1t, p=0:3, q=0:3)
+```
+
+**$\phi$**
+```{r}
+bestmodel$phi
+c(bestmodel$phi - qnorm(.975)*bestmodel$se.phi, bestmodel$phi + qnorm(.975)*bestmodel$se.phi)
+```
+
+**$\theta$**
+```{r}
+bestmodel$theta
+c(bestmodel$theta - qnorm(.975)*bestmodel$se.theta, bestmodel$theta + qnorm(.975)*bestmodel$se.theta)
+```
+
+**White Noise variance $\sigma^2$**
+```{r}
+bestmodel$sigma2
+```
+
+**Checking for White Noise in the residuals**
+
+*The p-values are large for all of the tests except for 1, and the ACF and PACF look OK. There are no obvious missing AR terms according to the PACF, and the ACF has a slight pattern but only 2 of the 40 lags (95%) are outside of the Bartlett bounds, which is about what we would expect. The biggest concern is that the McLeod-Li statistic is large enough to reject the null hypothesis, indicating we don't have Gaussian white noise. Based on the other tests, though, I think we're ok. Once again, I'm resisting the temptation to go back and more terms to make it "perfect", even though it looks like we could improve the model. Similar results for the other ARMA models considered above.*
+```{r}
+test(Resid(mink,M=c("log","diff",9,"trend",1), a=bestmodel))
+```
+
+**Checking for Causality and Invertibility in the ARMA model:**
+```{r}
+check(bestmodel)
+```
+
+**Finally, a forecast of our model.**
+```{r}
+forecast(mink,M=c("log","diff",9,"trend",1), a=bestmodel, h=10)
+```
+
+*What would it have looked like if we had done the d=14 differencing as considered above? The model fits better, but the prediction/interval is awful for the best ARMA model:*
+```{r}
+ma1model <- autofit(Resid(mink,M=c("log","diff",9,"trend",1,"diff",14)), p=0:5, q=0:10)
+forecast(mink, M=c("log","diff",9,"trend",1,"diff",14), a=ma1model, h=10)
+```
+

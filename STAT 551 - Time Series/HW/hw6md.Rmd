@@ -1,0 +1,32 @@
+---
+output: pdf_document
+geometry: margin=.2in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=7, fig.height=3.5)
+library(itsmr)
+```
+*4.7)*
+```{r}
+sunspots <- itsmr::Sunspots
+armaests <- yw(sunspots, p=2)
+armaests$phi; armaests$sigma2
+
+#periodogram of fitted model. Maximum is at frequency 52pi/289
+plots(armaests) + abline(v=2*pi*26/289)
+period <- 2*pi/(52*pi/289);      period
+```
+*4.8)*
+```{r}
+#specify model and plot the periodogram
+arspec <- specify(ar=c(0,0,.99), sigma2=1);     plots(arspec)
+
+#c
+simars <- sim(arspec, n= 60);       plotc(simars)
+
+#e
+plotc(smooth.ma(simars, q=1))
+```
+
